@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Payuni Test</title>
+  </head>
+  <body>
+    <h1>Test Product</h1>
+    <p>Price: 100 TWD</p>
+    <button id="pay-button">Pay with Credit Card</button>
+
+    <script>
+      document.getElementById("pay-button").addEventListener("click", async () => {
+        try {
+          const res = await fetch("http://localhost:3000/create-payment", {
+            method: "POST",
+          });
+          const { payUrl, data } = await res.json();
+
+          const form = document.createElement("form");
+          form.method = "POST";
+          form.action = payUrl;
+
+          Object.entries(data).forEach(([key, value]) => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+          });
+
+          document.body.appendChild(form);
+
+          form.submit();
+        } catch (error) {
+          console.error("Error creating payment:", error);
+        }
+      });
+    </script>
+  </body>
+</html>
