@@ -68,12 +68,33 @@ app.use(
 // 2. CORS 白名單限制
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [process.env.PAYUNI_RETURN_URL || "https://cablate-payuni.zeabur.app", "http://localhost:3000", "http://localhost"];
+    // 構建允許的來源列表
+    const allowedOrigins = [
+      // 前端/返回 URL
+      process.env.PAYUNI_RETURN_URL || "https://sandbox-api.payuni.com.tw",
+      process.env.DOMAIN || "http://localhost",
+      // 開發環境
+      "http://localhost",
+      "http://127.0.0.1",
+      "http://localhost:3000",
+      "http://localhost:5173", // Vite dev server
+    ];
 
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // 允許以下情況：
+    // 1. 沒有 origin（伺服器間通訊、curl、postman）
+    // 2. origin 是 "null"（表單提交、某些跨域場景）
+    // 3. origin 在白名單中
+    if (
+      !origin ||
+      origin === "null" ||
+      allowedOrigins.some((allowed) => {
+        // 完全匹配或去掉尾部斜杠後匹配
+        return origin === allowed || origin === allowed.replace(/\/$/, "");
+      })
+    ) {
       callback(null, true);
     } else {
-      logger.warn("CORS blocked request", { origin });
+      logger.warn("CORS blocked request", { origin, allowedOrigins });
       callback(new Error("Not allowed by CORS"));
     }
   },
@@ -361,9 +382,64 @@ app.post("/payuni-webhook", async (req, res) => {
 // 套用 Rate Limiting 到所有路由
 app.use(generalLimiter);
 
-app.post("/", (req, res) => {
-  logger.info("Received root POST request", { body: req.body });
-  res.send("SUCCESS");
+app.post("/", async (req, res) => {
+  // PAYUNi 的 ReturnURL 回調通常是透過表單 POST 到這裡
+  // 需要同時處理 /payuni-webhook 的邏輯
+  try {
+    logger.info("Received root POST request");
+
+    // 驗證 HashInfo
+    const { EncryptInfo, HashInfo, Status } = req.body;
+
+    if (!EncryptInfo || !HashInfo) {
+      // 不是 PAYUNi 回調，直接返回成功
+      logger.warn("Missing EncryptInfo or HashInfo in root POST");
+      return res.send("SUCCESS");
+    }
+
+    if (Status !== "SUCCESS") {
+      logger.warn("Payment status is not SUCCESS", { status: Status });
+      return res.send("FAIL");
+    }
+
+    const hashKey = process.env.PAYUNI_HASH_KEY;
+    const hashIV = process.env.PAYUNI_HASH_IV;
+
+    // 計算並驗證 Hash
+    const calculatedHash = sha256(EncryptInfo, hashKey, hashIV);
+    if (calculatedHash !== HashInfo) {
+      logger.warn("Hash verification failed");
+      return res.send("FAIL");
+    }
+
+    // 解密資料
+    const merIv = Buffer.from(hashIV, "utf8");
+    const decryptedData = decrypt(EncryptInfo, hashKey, merIv);
+
+    // 解析解密後的資料
+    const parsedData = querystring.parse(decryptedData);
+
+    // 從解密資料中提取訂單資訊
+    const tradeNo = parsedData.MerTradeNo;
+    const tradeSeq = parsedData.TradeSeq;
+    const payStatus = parsedData.Status || "已完成";
+
+    if (!tradeNo) {
+      logger.warn("Missing MerTradeNo in parsed data");
+      return res.send("FAIL");
+    }
+
+    // 只記錄訂單編號和狀態，不記錄完整資料
+    logger.info("ReturnURL Callback verified", { tradeNo, tradeSeq, payStatus });
+
+    logger.info("ReturnURL processed successfully", { tradeNo, status: payStatus });
+    res.send("SUCCESS");
+  } catch (error) {
+    logger.error("Root POST processing error", {
+      message: error.message,
+    });
+    res.send("SUCCESS");
+  }
 });
 
 app.get("/", (req, res) => {
