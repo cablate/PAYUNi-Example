@@ -378,7 +378,7 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
       }
     }
     logger.info("Payment created successfully", { tradeNo, amount: tradeAmt });
-    res.json({ payUrl: payuniApiUrl, data: { ...tradeData, EncryptInfo: encryptStr, HashInfo: sha256(encryptStr, merKey, merIv) } });
+    res.json({ payUrl: payuniApiUrl, data: { MerID: merID, Version: "1.0", EncryptInfo: encryptStr, HashInfo: sha256(encryptStr, merKey, merIv) } });
   } catch (error) {
     return sendSecureError(res, 500, "支付建立失敗", { tradeNo, message: error.message });
   }
