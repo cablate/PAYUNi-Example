@@ -13,6 +13,7 @@ const session = require("express-session");
 const csrf = require("csurf");
 const logger = require("./utils/logger");
 const { printStartupBanner, printEnvironmentConfig, printSuccess, printWarning, printError } = require("./startup");
+const products = require("./data/products"); // 引入商品資料
 
 require("dotenv").config();
 
@@ -65,9 +66,9 @@ app.use(
         // 限制 img-src 為自己站域、Cloudflare（Turnstile）以及允許 data: URI（小圖示）
         imgSrc: ["'self'", "https://challenges.cloudflare.com", "data:"],
         // 明確定義 font-src，避免使用廣泛的 https: 通配
-fontSrc: ["'self'", "data:"],
-objectSrc: ["'none'"], // 新增：禁止載入舊式外掛程式
-formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"], // 新增：禁止載入舊式外掛程式
+        formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"],
         // 防止被嵌入到其他網站中的 iframe（只允許自己的頁面嵌入自己）
         frameAncestors: ["'self'"],
       },
@@ -86,13 +87,13 @@ const corsOptions = {
     // 構建允許的來源列表
     const allowedOrigins = [
       // 前端/返回 URL
-      process.env.PAYUNI_RETURN_URL || "https://sandbox-api.payuni.com.tw",
-      process.env.DOMAIN || "http://localhost",
+      process.env.PAYUNI_RETURN_URL || "https://exam2ple.com",
+      process.env.DOMAIN || "https://exam2ple.com",
+      "https://sandbox-api.payuni.com.tw",
+      "https://api.payuni.com.tw",
       // 開發環境
       "http://localhost",
       "http://127.0.0.1",
-      "http://localhost:3000",
-      "http://localhost:5173", // Vite dev server
     ];
 
     // 允許以下情況：
@@ -146,7 +147,7 @@ const apiResultLimiter = rateLimit({
 });
 
 // 4. PAYUNi ReturnURL 白名單驗證
-const ALLOWED_RETURN_URLS = [process.env.PAYUNI_RETURN_URL || "http://localhost"];
+const ALLOWED_RETURN_URLS = [process.env.PAYUNI_RETURN_URL || "https://exam2ple.com"];
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // 支援 form-urlencoded 格式
@@ -184,14 +185,11 @@ const csrfProtection = csrf({
 });
 
 // 定義需要從 CSRF 保護中排除的路徑
-const csrfExcludedPaths = ['/payment-return', '/payuni-webhook'];
+const csrfExcludedPaths = ["/payment-return", "/payuni-webhook"];
 
 // 全域套用 CSRF 保護 (GET, HEAD, OPTIONS 除外，並排除特定路徑)
 app.use((req, res, next) => {
-  if (
-    ["GET", "HEAD", "OPTIONS"].includes(req.method) ||
-    csrfExcludedPaths.includes(req.path)
-  ) {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method) || csrfExcludedPaths.includes(req.path)) {
     return next();
   }
   csrfProtection(req, res, next);
@@ -275,6 +273,11 @@ app.get("/csrf-token", csrfProtection, (req, res) => {
   }
 });
 
+// 新增：提供商品列表的 API
+app.get("/api/products", (req, res) => {
+  res.json(products);
+});
+
 // 定義 /create-payment 的驗證規則
 const createPaymentValidation = [
   body("email").trim().notEmpty().withMessage("Email 不可為空").isEmail().withMessage("Email 格式不正確").normalizeEmail().isLength({ max: 100 }).withMessage("Email 長度不可超過 100 字元"),
@@ -290,41 +293,33 @@ const createPaymentValidation = [
 ];
 
 app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req, res) => {
-  // 檢查輸入驗證結果
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn("Validation failed", { errors: errors.array() });
-    return res.status(400).json({
-      error: "輸入資料不正確",
-      details: errors.array().map((e) => e.msg),
-    });
+    return res.status(400).json({ error: "輸入資料不正確", details: errors.array().map((e) => e.msg) });
   }
 
-  const { turnstileToken, email } = req.body;
+  const { turnstileToken, email, productID } = req.body;
+
+  // 根據 productID 查找商品
+  const product = products.find((p) => p.id === productID);
+  if (!product) {
+    return res.status(404).json({ error: "找不到該商品" });
+  }
 
   if (process.env.TURNSTILE_ENABLE === "true") {
-    // 驗證 token
     if (!turnstileToken) {
       logger.warn("Turnstile token is missing");
       return res.status(400).json({ error: "Turnstile token is required" });
     }
-
     try {
-      const turnstileResponse = await axios.post(TURNSTILE_VERIFY_URL, {
-        secret: TURNSTILE_SECRET_KEY,
-        response: turnstileToken,
-      });
-
+      const turnstileResponse = await axios.post(TURNSTILE_VERIFY_URL, { secret: TURNSTILE_SECRET_KEY, response: turnstileToken });
       if (!turnstileResponse.data.success) {
-        logger.warn("Turnstile verification failed", {
-          errorCodes: turnstileResponse.data["error-codes"],
-        });
+        logger.warn("Turnstile verification failed", { errorCodes: turnstileResponse.data["error-codes"] });
         return res.status(400).json({ error: "Turnstile verification failed" });
       }
     } catch (error) {
-      return sendSecureError(res, 500, "Turnstile 驗證錯誤", {
-        message: error.message,
-      });
+      return sendSecureError(res, 500, "Turnstile 驗證錯誤", { message: error.message });
     }
   }
 
@@ -333,42 +328,44 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
   const hashKey = process.env.PAYUNI_HASH_KEY;
   const hashIV = process.env.PAYUNI_HASH_IV;
 
-  const tradeNo = "test" + new Date().getTime();
-  const tradeAmt = 100;
-  const timestamp = Math.round(new Date().getTime() / 1000);
+  if (process.env.GAS_WEBHOOK_URL) {
+    try {
+      const findRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=findOrder`, { email: email || "", productID: product.id });
+      if (findRes.data?.success && findRes.data?.order) {
+        logger.info("Found existing pending order, reusing it.", { tradeNo: findRes.data.order.tradeNo });
+        const { tradeNo: existingTradeNo, tradeAmt: existingTradeAmt } = findRes.data.order;
+        const timestamp = Math.round(new Date().getTime() / 1000);
+        const returnUrl = process.env.PAYUNI_RETURN_URL || ALLOWED_RETURN_URLS[0];
 
-  // ReturnURL 驗證（防止開放重定向）
-  // 從環境變數 PAYUNI_RETURN_URL 取得，使用白名單驗證
+        const tradeData = { MerID: merID, Version: "1.0", MerTradeNo: existingTradeNo, TradeAmt: existingTradeAmt, ProdDesc: product.name, NotifyURL: process.env.NOTIFY_URL, ReturnURL: returnUrl, PayType: "C", Timestamp: timestamp };
+        const plaintext = querystring.stringify(tradeData);
+        const merKey = hashKey;
+        const merIv = Buffer.from(hashIV, "utf8");
+        const encryptStr = encrypt(plaintext, merKey, merIv);
+
+        return res.json({ payUrl: payuniApiUrl, data: { ...tradeData, EncryptInfo: encryptStr, HashInfo: sha256(encryptStr, merKey, merIv) } });
+      }
+    } catch (findError) {
+      logger.warn("Failed to check for existing order, proceeding to create a new one.", { error: findError.message });
+    }
+  }
+
+  const tradeNo = "test" + new Date().getTime();
+  const tradeAmt = product.price; // 使用商品資料中的價格
+  const prodDesc = product.name; // 使用商品資料中的名稱
+  const timestamp = Math.round(new Date().getTime() / 1000);
   const returnUrl = process.env.PAYUNI_RETURN_URL || ALLOWED_RETURN_URLS[0];
 
-  const tradeData = {
-    MerID: merID,
-    Version: "1.0",
-    MerTradeNo: tradeNo,
-    TradeAmt: tradeAmt,
-    ProdDesc: "Test Product",
-    NotifyURL: process.env.NOTIFY_URL,
-    ReturnURL: returnUrl, // PAYUNi 的重導向 URL
-    PayType: "C",
-    Timestamp: timestamp,
-  };
-
+  const tradeData = { MerID: merID, Version: "1.0", MerTradeNo: tradeNo, TradeAmt: tradeAmt, ProdDesc: prodDesc, NotifyURL: process.env.NOTIFY_URL, ReturnURL: returnUrl, PayType: "C", Timestamp: timestamp };
   const plaintext = querystring.stringify(tradeData);
   const merKey = hashKey;
   const merIv = Buffer.from(hashIV, "utf8");
   const encryptStr = encrypt(plaintext, merKey, merIv);
 
   try {
-    // 透過 GAS 在 Google Sheets 先建立一筆訂單紀錄
-
     if (process.env.GAS_WEBHOOK_URL) {
       try {
-        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, {
-          tradeNo,
-          merID,
-          tradeAmt,
-          email: email || "",
-        });
+        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, { tradeNo, merID, tradeAmt, email: email || "", productID: product.id, productName: product.name });
         if (!gasRes.data?.success) {
           logger.warn("GAS failed to create order", { tradeNo, response: gasRes.data });
           return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
@@ -376,28 +373,14 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
           logger.info("Order record created in Google Sheets", { tradeNo });
         }
       } catch (gasError) {
-        logger.warn("Failed to create order in Google Sheets", {
-          tradeNo,
-          error: gasError.message,
-        });
+        logger.warn("Failed to create order in Google Sheets", { tradeNo, error: gasError.message });
         return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
       }
     }
-
     logger.info("Payment created successfully", { tradeNo, amount: tradeAmt });
-    res.json({
-      payUrl: payuniApiUrl,
-      data: {
-        ...tradeData,
-        EncryptInfo: encryptStr,
-        HashInfo: sha256(encryptStr, merKey, merIv),
-      },
-    });
+    res.json({ payUrl: payuniApiUrl, data: { ...tradeData, EncryptInfo: encryptStr, HashInfo: sha256(encryptStr, merKey, merIv) } });
   } catch (error) {
-    return sendSecureError(res, 500, "支付建立失敗", {
-      tradeNo,
-      message: error.message,
-    });
+    return sendSecureError(res, 500, "支付建立失敗", { tradeNo, message: error.message });
   }
 });
 
