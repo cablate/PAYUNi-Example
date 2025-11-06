@@ -37,11 +37,11 @@ PAYUNI_HASH_IV=your_hash_iv
 npm start
 ```
 
-伺服器將在 `http://localhost:3000` 啟動。
+伺服器將在 `http://localhost` 啟動。
 
 ## 使用說明
 
-1. 開啟瀏覽器訪問 `http://localhost:3000`
+1. 開啟瀏覽器訪問 `http://localhost`
 2. 點擊「Pay with Credit Card」按鈕
 3. 系統會自動導向統一金流付款頁面
 4. 完成付款
