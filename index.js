@@ -1,11 +1,15 @@
 const express = require("express");
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 const { encrypt, decrypt, sha256 } = require("./utils/crypto");
 const cors = require("cors");
 const querystring = require("querystring");
 const rateLimit = require("express-rate-limit");
 const { body, validationResult } = require("express-validator");
 const helmet = require("helmet");
+const session = require("express-session");
+const csrf = require("csurf");
 const logger = require("./utils/logger");
 const { printStartupBanner, printEnvironmentConfig, printSuccess, printWarning, printError } = require("./startup");
 
@@ -49,12 +53,19 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+        // 移除 'unsafe-inline'，所有 script 與 style 必須來自明確的來源或以 nonce 方式加載
+        scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
+        styleSrc: ["'self'", "https://challenges.cloudflare.com"],
         frameSrc: ["https://challenges.cloudflare.com"],
-        connectSrc: ["'self'", "https://challenges.cloudflare.com", "https://cablate-payuni.zeabur.app"],
-        imgSrc: ["'self'", "https:"],
-        formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"], // 允許提交到 PAYUNi
+        connectSrc: ["'self'", "https://challenges.cloudflare.com", process.env.DOMAIN],
+        // 限制 img-src 為自己站域、Cloudflare（Turnstile）以及允許 data: URI（小圖示）
+        imgSrc: ["'self'", "https://challenges.cloudflare.com", "data:"],
+        // 明確定義 font-src，避免使用廣泛的 https: 通配
+        fontSrc: ["'self'", "data:"],
+        // 限制 form-action 只允許提交到自己站域與 PAYUNi 官方端點
+        formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"],
+        // 防止被嵌入到其他網站中的 iframe（只允許自己的頁面嵌入自己）
+        frameAncestors: ["'self'"],
       },
     },
     hsts: {
@@ -113,6 +124,7 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+app.use(generalLimiter); // 套用 Rate Limiting 到所有路由
 
 const paymentLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 分鐘
@@ -122,10 +134,54 @@ const paymentLimiter = rateLimit({
 });
 
 // 4. PAYUNi ReturnURL 白名單驗證
-const ALLOWED_RETURN_URLS = [process.env.PAYUNI_RETURN_URL || "https://cablate-payuni.zeabur.app", "http://localhost:3000", "http://localhost"];
+const ALLOWED_RETURN_URLS = [process.env.PAYUNI_RETURN_URL || "http://localhost"];
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // 支援 form-urlencoded 格式
+// 提供靜態檔案：根目錄（index.html）與 public 子目錄
+app.use(express.static(path.join(__dirname))); // 根目錄
+app.use(express.static(path.join(__dirname, "public"))); // public 子目錄
+
+// Session 配置（用於 CSRF 防護）
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // 生產環境使用 HTTPS only
+      httpOnly: true, // 防止 JavaScript 存取
+      sameSite: "lax", // CSRF 防護
+      maxAge: 1000 * 60 * 60 * 24, // 24 小時
+    },
+  })
+);
+
+// CSRF 防護中間件
+// 支持在 header ('X-CSRF-Token') 或 body ('_csrf' 欄位) 中提交 token
+const csrfProtection = csrf({
+  cookie: false,
+  value: (req) => {
+    return req.headers["x-csrf-token"] || req.body._csrf;
+  },
+});
+
+// 對所有非 GET 的請求應用 CSRF protection（除了特定端點）
+const csrfErrorHandler = (err, req, res, next) => {
+  if (err.code === "EBADCSRFTOKEN") {
+    logger.warn("CSRF token validation failed", {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+    });
+    return res.status(403).json({
+      error: "安全驗證失敗，請重新整理頁面後重試",
+      code: "CSRF_VALIDATION_FAILED",
+    });
+  }
+  next(err);
+};
+app.use(csrfErrorHandler); // 應用 CSRF 錯誤處理中間件
 
 // 5. 安全錯誤處理工具函數
 function sendSecureError(res, statusCode, publicMessage, logContext = {}) {
@@ -173,6 +229,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// ========================================
+// 路由與業務邏輯
+// ========================================
+
+// CSRF Token 取得端點：使用 csrfProtection 中間件以初始化 token
+app.get("/csrf-token", csrfProtection, (req, res) => {
+  try {
+    const token = req.csrfToken();
+    res.json({ csrfToken: token });
+  } catch (error) {
+    logger.error("Failed to generate CSRF token", { error: error.message });
+    res.status(500).json({ error: "Failed to generate CSRF token" });
+  }
+});
+
 // 定義 /create-payment 的驗證規則
 const createPaymentValidation = [
   body("email").trim().notEmpty().withMessage("Email 不可為空").isEmail().withMessage("Email 格式不正確").normalizeEmail().isLength({ max: 100 }).withMessage("Email 長度不可超過 100 字元"),
@@ -187,7 +258,7 @@ const createPaymentValidation = [
     .withMessage("Token 長度異常"),
 ];
 
-app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req, res) => {
+app.post("/create-payment", paymentLimiter, csrfProtection, createPaymentValidation, async (req, res) => {
   // 檢查輸入驗證結果
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -379,9 +450,6 @@ app.post("/payuni-webhook", async (req, res) => {
   }
 });
 
-// 套用 Rate Limiting 到所有路由
-app.use(generalLimiter);
-
 app.post("/", async (req, res) => {
   // PAYUNi 的 ReturnURL 回調通常是透過表單 POST 到這裡
   // 需要同時處理 /payuni-webhook 的邏輯
@@ -442,9 +510,12 @@ app.post("/", async (req, res) => {
   }
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
-});
+// 靜態檔案已由 express.static() 自動服務 (GET /)
+// 不需要額外的路由
+
+// ========================================
+// 錯誤處理與伺服器啟動
+// ========================================
 
 // 全域錯誤處理
 app.use((err, req, res, next) => {
@@ -488,5 +559,3 @@ server.on("error", (error) => {
   }
   process.exit(1);
 });
-
-// Crypto helpers (AES-256-GCM + SHA256) are implemented in ./utils/crypto.js
