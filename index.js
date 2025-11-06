@@ -1,12 +1,12 @@
 const express = require("express");
 const axios = require("axios");
-const crypto = require("crypto");
+const { encrypt, decrypt, sha256 } = require("./utils/crypto");
 const cors = require("cors");
 const querystring = require("querystring");
 const rateLimit = require("express-rate-limit");
 const { body, validationResult } = require("express-validator");
 const helmet = require("helmet");
-const logger = require("./logger");
+const logger = require("./utils/logger");
 const { printStartupBanner, printEnvironmentConfig, printSuccess, printWarning, printError } = require("./startup");
 
 require("dotenv").config();
@@ -489,29 +489,4 @@ server.on("error", (error) => {
   process.exit(1);
 });
 
-function encrypt(plaintext, key, iv) {
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-
-  let cipherText = cipher.update(plaintext, "utf8", "base64");
-  cipherText += cipher.final("base64");
-
-  const tag = cipher.getAuthTag().toString("base64");
-  return Buffer.from(`${cipherText}:::${tag}`).toString("hex").trim();
-}
-
-function sha256(encryptStr, key, iv) {
-  const hash = crypto.createHash("sha256").update(`${key}${encryptStr}${iv}`);
-  return hash.digest("hex").toUpperCase();
-}
-
-function decrypt(encryptStr, key, iv) {
-  const [encryptData, tag] = Buffer.from(encryptStr, "hex").toString().split(":::");
-
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAuthTag(Buffer.from(tag, "base64"));
-
-  let decipherText = decipher.update(encryptData, "base64", "utf8");
-  decipherText += decipher.final("utf8");
-
-  return decipherText;
-}
+// Crypto helpers (AES-256-GCM + SHA256) are implemented in ./utils/crypto.js
