@@ -31,12 +31,16 @@ PAYUNI_API_URL=https://sandbox-api.payuni.com.tw/api/trade
 PAYUNI_MERCHANT_ID=your_merchant_id
 PAYUNI_HASH_KEY=your_hash_key
 PAYUNI_HASH_IV=your_hash_iv
+PAYUNI_RETURN_URL=https://your-domain.com
 TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 TURNSTILE_ENABLE=true
+NOTIFY_URL=https://your-domain.com/payuni-webhook
 ```
 
 **環境變數說明**：
 
+- `PAYUNI_RETURN_URL`: 支付完成後重導向的 URL（對應 PAYUNi 的 ReturnURL 參數）
+- `NOTIFY_URL`: PAYUNi 支付結果通知的 Webhook URL
 - `TURNSTILE_ENABLE`: 是否啟用 Turnstile 驗證（true/false，預設：false）
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile Secret Key（啟用驗證時必需）
 

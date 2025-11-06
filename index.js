@@ -3,6 +3,9 @@ const axios = require("axios");
 const crypto = require("crypto");
 const cors = require("cors");
 const querystring = require("querystring");
+const rateLimit = require("express-rate-limit");
+const { body, validationResult } = require("express-validator");
+const helmet = require("helmet");
 const logger = require("./logger");
 const { printStartupBanner, printEnvironmentConfig, printSuccess, printWarning, printError } = require("./startup");
 
@@ -36,9 +39,89 @@ const port = 80;
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-app.use(cors());
+// ========================================
+// 安全設定
+// ========================================
+
+// 1. Helmet 安全標頭設定
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+        frameSrc: ["https://challenges.cloudflare.com"],
+        connectSrc: ["'self'", "https://challenges.cloudflare.com", "https://cablate-payuni.zeabur.app"],
+        imgSrc: ["'self'", "https:"],
+        formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"], // 允許提交到 PAYUNi
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
+
+// 2. CORS 白名單限制
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [process.env.PAYUNI_RETURN_URL || "https://cablate-payuni.zeabur.app", "http://localhost:3000", "http://localhost"];
+
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      logger.warn("CORS blocked request", { origin });
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST"],
+  credentials: true,
+  maxAge: 86400,
+};
+
+app.use(cors(corsOptions));
+
+// 3. Rate Limiting 配置
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 分鐘
+  max: 100, // 每個 IP 最多 100 個請求
+  message: { error: "請求過於頻繁，請稍後再試" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 分鐘
+  max: 5, // 每個 IP 最多 5 次支付請求
+  message: { error: "支付請求過於頻繁，請稍後再試" },
+  skipSuccessfulRequests: false,
+});
+
+// 4. PAYUNi ReturnURL 白名單驗證
+const ALLOWED_RETURN_URLS = [process.env.PAYUNI_RETURN_URL || "https://cablate-payuni.zeabur.app", "http://localhost:3000", "http://localhost"];
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // 支援 form-urlencoded 格式
+
+// 5. 安全錯誤處理工具函數
+function sendSecureError(res, statusCode, publicMessage, logContext = {}) {
+  logger.error(publicMessage, logContext);
+
+  if (process.env.NODE_ENV === "production") {
+    return res.status(statusCode).json({
+      error: "系統處理異常，請稍後再試",
+      code: statusCode,
+    });
+  }
+
+  return res.status(statusCode).json({
+    error: publicMessage,
+    ...logContext,
+  });
+}
 
 // 請求日誌 - 只記錄重要的
 app.use((req, res, next) => {
@@ -69,10 +152,34 @@ app.use((req, res, next) => {
   next();
 });
 
-app.post("/create-payment", async (req, res) => {
-  const { turnstileToken } = req.body;
+// 定義 /create-payment 的驗證規則
+const createPaymentValidation = [
+  body("email").trim().notEmpty().withMessage("Email 不可為空").isEmail().withMessage("Email 格式不正確").normalizeEmail().isLength({ max: 100 }).withMessage("Email 長度不可超過 100 字元"),
 
-  if (process.env.TURNSTILE_ENABLE) {
+  body("turnstileToken")
+    .if(() => process.env.TURNSTILE_ENABLE === "true")
+    .notEmpty()
+    .withMessage("驗證 token 不可為空")
+    .isString()
+    .withMessage("驗證 token 必須是字串")
+    .isLength({ max: 2000 })
+    .withMessage("Token 長度異常"),
+];
+
+app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req, res) => {
+  // 檢查輸入驗證結果
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn("Validation failed", { errors: errors.array() });
+    return res.status(400).json({
+      error: "輸入資料不正確",
+      details: errors.array().map((e) => e.msg),
+    });
+  }
+
+  const { turnstileToken, email } = req.body;
+
+  if (process.env.TURNSTILE_ENABLE === "true") {
     // 驗證 token
     if (!turnstileToken) {
       logger.warn("Turnstile token is missing");
@@ -92,11 +199,9 @@ app.post("/create-payment", async (req, res) => {
         return res.status(400).json({ error: "Turnstile verification failed" });
       }
     } catch (error) {
-      logger.error("Turnstile verification error", {
+      return sendSecureError(res, 500, "Turnstile 驗證錯誤", {
         message: error.message,
-        stack: error.stack,
       });
-      return res.status(500).json({ error: "Turnstile verification error" });
     }
   }
 
@@ -109,6 +214,10 @@ app.post("/create-payment", async (req, res) => {
   const tradeAmt = 100;
   const timestamp = Math.round(new Date().getTime() / 1000);
 
+  // ReturnURL 驗證（防止開放重定向）
+  // 從環境變數 PAYUNI_RETURN_URL 取得，使用白名單驗證
+  const returnUrl = process.env.PAYUNI_RETURN_URL || ALLOWED_RETURN_URLS[0];
+
   const tradeData = {
     MerID: merID,
     Version: "1.0",
@@ -116,7 +225,7 @@ app.post("/create-payment", async (req, res) => {
     TradeAmt: tradeAmt,
     ProdDesc: "Test Product",
     NotifyURL: process.env.NOTIFY_URL,
-    ReturnURL: "https://cablate-payuni.zeabur.app/",
+    ReturnURL: returnUrl, // PAYUNi 的重導向 URL
     PayType: "C",
     Timestamp: timestamp,
   };
@@ -128,19 +237,18 @@ app.post("/create-payment", async (req, res) => {
 
   try {
     // 透過 GAS 在 Google Sheets 先建立一筆訂單紀錄
-    const { email } = req.body;
 
     if (process.env.GAS_WEBHOOK_URL) {
       try {
-        const res = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, {
+        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, {
           tradeNo,
           merID,
           tradeAmt,
           email: email || "",
         });
-        if (!res.data?.success) {
-          logger.warn("GAS failed to create order", { tradeNo, response: res.data });
-          return res.status(500).json({ error: "Failed to create order record" });
+        if (!gasRes.data?.success) {
+          logger.warn("GAS failed to create order", { tradeNo, response: gasRes.data });
+          return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
         } else {
           logger.info("Order record created in Google Sheets", { tradeNo });
         }
@@ -149,7 +257,7 @@ app.post("/create-payment", async (req, res) => {
           tradeNo,
           error: gasError.message,
         });
-        return res.status(500).json({ error: "Failed to create order record" });
+        return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
       }
     }
 
@@ -163,18 +271,17 @@ app.post("/create-payment", async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error("Payment creation failed", {
+    return sendSecureError(res, 500, "支付建立失敗", {
       tradeNo,
       message: error.message,
-      stack: error.stack,
     });
-    res.status(500).send("Error creating payment");
   }
 });
 
 app.post("/payuni-webhook", async (req, res) => {
   try {
-    logger.info("Received Payuni webhook notification", req.body);
+    // 只記錄必要資訊，避免洩漏敏感資料
+    logger.info("Received Payuni webhook notification");
 
     // 驗證 HashInfo
     const { EncryptInfo, HashInfo, Status } = req.body;
@@ -190,18 +297,16 @@ app.post("/payuni-webhook", async (req, res) => {
     // 計算並驗證 Hash
     const calculatedHash = sha256(EncryptInfo, hashKey, hashIV);
     if (calculatedHash !== HashInfo) {
-      logger.warn("Hash verification failed", { provided: HashInfo, calculated: calculatedHash });
+      logger.warn("Hash verification failed");
       return res.send("FAIL");
     }
 
     // 解密資料
     const merIv = Buffer.from(hashIV, "utf8");
     const decryptedData = decrypt(EncryptInfo, hashKey, merIv);
-    logger.info("Decrypted webhook data", { data: decryptedData });
 
     // 解析解密後的資料
     const parsedData = querystring.parse(decryptedData);
-    logger.info("Parsed webhook data", { parsedData });
 
     // 從解密資料中提取訂單資訊
     const tradeNo = parsedData.MerTradeNo;
@@ -213,6 +318,9 @@ app.post("/payuni-webhook", async (req, res) => {
       return res.send("FAIL");
     }
 
+    // 只記錄訂單編號和狀態，不記錄完整資料
+    logger.info("Webhook verified", { tradeNo, tradeSeq, payStatus });
+
     // 如果有 GAS_WEBHOOK_URL，呼叫 GAS 更新訂單狀態
     if (process.env.GAS_WEBHOOK_URL) {
       try {
@@ -220,17 +328,16 @@ app.post("/payuni-webhook", async (req, res) => {
           MerTradeNo: tradeNo,
           TradeSeq: tradeSeq,
           Status: payStatus,
-          rawData: parsedData, // 包含所有解密後的資料
+          rawData: parsedData,
         };
 
         const gasResponse = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=updateOrder`, updateData);
-        logger.info("GAS update order response", { tradeNo, data: gasResponse.data });
 
         if (!gasResponse.data?.success) {
-          logger.warn("GAS failed to update order", { tradeNo, response: gasResponse.data });
+          logger.warn("GAS failed to update order", { tradeNo });
           return res.send("FAIL");
         } else {
-          logger.info("Order updated in Google Sheets via GAS", { tradeNo, status: payStatus });
+          logger.info("Order updated in Google Sheets", { tradeNo, status: payStatus });
         }
       } catch (gasError) {
         logger.warn("Failed to update order in Google Sheets", {
@@ -246,13 +353,16 @@ app.post("/payuni-webhook", async (req, res) => {
   } catch (error) {
     logger.error("Webhook processing error", {
       message: error.message,
-      stack: error.stack,
     });
     res.send("ERROR");
   }
 });
 
+// 套用 Rate Limiting 到所有路由
+app.use(generalLimiter);
+
 app.post("/", (req, res) => {
+  logger.info("Received root POST request", { body: req.body });
   res.send("SUCCESS");
 });
 
@@ -264,7 +374,6 @@ app.get("/", (req, res) => {
 app.use((err, req, res, next) => {
   logger.error("Unhandled error", {
     message: err.message,
-    stack: err.stack,
     path: req.path,
     method: req.method,
   });
@@ -275,7 +384,6 @@ app.use((err, req, res, next) => {
 process.on("uncaughtException", (error) => {
   logger.error("Uncaught exception", {
     message: error.message,
-    stack: error.stack,
   });
   process.exit(1);
 });
@@ -283,8 +391,7 @@ process.on("uncaughtException", (error) => {
 // 未處理的 Promise 拒絕
 process.on("unhandledRejection", (reason, promise) => {
   logger.error("Unhandled rejection", {
-    reason,
-    promise,
+    reason: String(reason),
   });
 });
 
@@ -332,7 +439,3 @@ function decrypt(encryptStr, key, iv) {
 
   return decipherText;
 }
-
-const aaa =
-  "2b7a76755a774d484362695631666d41764a59564853416d525a4947374977507759386f4e303655393435747646497a4a31494641365344464754392f68754e797636665479704873445732395246515a5a75504c7468556673774c66454e503571337937596e586d47304b6374745274327868536d2b6343582b756c516a74773243342b48584b455275576c742b2b6268642f3047482b4f3936434e44763557703136666369705670326844336279754d325070694b6c684142526c58707541473134754668456b7155646343787453464d34716f31494850477650713549704d5667464c2f646c554c58303037436a785437334a6f517871546c64437165764452676650515a78353673686b476b6a705936755a6c746b323371664a4e626d782b69424f446647617849474c754c52766547416c7048564834494b4d6878554858766168615649457248356c57326e527644714679706d2b31716476377045614a2b77575a7a706b356679495a664661636e536e692b363177516c766c4f356c496a446a644e7557355257324554786c67464a54614f6a59783835544b786735754752734d7651572f76646b72463837415065464a317a62314e4a6e6f65465a5762316f3677704164306f783852415473373231394b675552367066706255374a455635356e327a7433662f6a42746e542b47563776475674454836724b75714832726650707a445733624965492f6e515039433562377a5a3058716771504850767556426c78476d6c42355070596e636d6c642b2f506f765350345241672f6437416e756e2f7876774145663132533572466f64657a7a515a466563685032696750357a47353546612b5764586941663347704a664e366350347a716b526871744434656f794664466157525853674162616b45303349513d3a3a3a3632633465656f776167795370362f373771726841773d3d";
-console.log(decrypt(aaa, process.env.PAYUNI_HASH_KEY, Buffer.from(process.env.PAYUNI_HASH_IV, "utf8")));
