@@ -59,15 +59,15 @@ app.use(
         defaultSrc: ["'self'"],
         // 移除 'unsafe-inline'，所有 script 與 style 必須來自明確的來源或以 nonce 方式加載
         scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
-        styleSrc: ["'self'", "https://challenges.cloudflare.com", "'unsafe-inline'"],
+        styleSrc: ["'self'", "https://challenges.cloudflare.com"], // 修正：移除 'unsafe-inline'
         frameSrc: ["https://challenges.cloudflare.com"],
         connectSrc: ["'self'", "https://challenges.cloudflare.com", process.env.DOMAIN],
         // 限制 img-src 為自己站域、Cloudflare（Turnstile）以及允許 data: URI（小圖示）
         imgSrc: ["'self'", "https://challenges.cloudflare.com", "data:"],
         // 明確定義 font-src，避免使用廣泛的 https: 通配
-        fontSrc: ["'self'", "data:"],
-        // 限制 form-action 只允許提交到自己站域與 PAYUNi 官方端點
-        formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"],
+fontSrc: ["'self'", "data:"],
+objectSrc: ["'none'"], // 新增：禁止載入舊式外掛程式
+formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"],
         // 防止被嵌入到其他網站中的 iframe（只允許自己的頁面嵌入自己）
         frameAncestors: ["'self'"],
       },
@@ -183,6 +183,20 @@ const csrfProtection = csrf({
   },
 });
 
+// 定義需要從 CSRF 保護中排除的路徑
+const csrfExcludedPaths = ['/payment-return', '/payuni-webhook'];
+
+// 全域套用 CSRF 保護 (GET, HEAD, OPTIONS 除外，並排除特定路徑)
+app.use((req, res, next) => {
+  if (
+    ["GET", "HEAD", "OPTIONS"].includes(req.method) ||
+    csrfExcludedPaths.includes(req.path)
+  ) {
+    return next();
+  }
+  csrfProtection(req, res, next);
+});
+
 // 對所有非 GET 的請求應用 CSRF protection（除了特定端點）
 const csrfErrorHandler = (err, req, res, next) => {
   if (err.code === "EBADCSRFTOKEN") {
@@ -275,7 +289,7 @@ const createPaymentValidation = [
     .withMessage("Token 長度異常"),
 ];
 
-app.post("/create-payment", paymentLimiter, csrfProtection, createPaymentValidation, async (req, res) => {
+app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req, res) => {
   // 檢查輸入驗證結果
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -419,7 +433,7 @@ app.post("/payuni-webhook", async (req, res) => {
 
     // 從解密資料中提取訂單資訊
     const tradeNo = parsedData.MerTradeNo;
-    const tradeSeq = parsedData.TradeSeq;
+    const tradeSeq = parsedData.TradeNo;
     const payStatus = parsedData.Status || "已完成";
 
     if (!tradeNo) {
@@ -491,7 +505,7 @@ app.post("/payment-return", async (req, res) => {
     const resultData = {
       status: Status === "SUCCESS" ? "success" : "fail",
       tradeNo: decryptedData.MerTradeNo,
-      tradeSeq: decryptedData.TradeSeq,
+      tradeSeq: decryptedData.TradeNo,
       tradeAmt: decryptedData.TradeAmt,
       payTime: decryptedData.PayTime || new Date().toISOString(),
       message: decryptedData.Message,
