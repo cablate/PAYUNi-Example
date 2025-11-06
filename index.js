@@ -3,6 +3,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { encrypt, decrypt, sha256 } = require("./utils/crypto");
+const crypto = require("crypto");
 const cors = require("cors");
 const querystring = require("querystring");
 const rateLimit = require("express-rate-limit");
@@ -43,6 +44,9 @@ const port = 80;
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
+// 用於儲存一次性權杖的記憶體內存儲
+const oneTimeTokens = new Map();
+
 // ========================================
 // 安全設定
 // ========================================
@@ -55,7 +59,7 @@ app.use(
         defaultSrc: ["'self'"],
         // 移除 'unsafe-inline'，所有 script 與 style 必須來自明確的來源或以 nonce 方式加載
         scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
-        styleSrc: ["'self'", "https://challenges.cloudflare.com"],
+        styleSrc: ["'self'", "https://challenges.cloudflare.com", "'unsafe-inline'"],
         frameSrc: ["https://challenges.cloudflare.com"],
         connectSrc: ["'self'", "https://challenges.cloudflare.com", process.env.DOMAIN],
         // 限制 img-src 為自己站域、Cloudflare（Turnstile）以及允許 data: URI（小圖示）
@@ -119,18 +123,26 @@ app.use(cors(corsOptions));
 // 3. Rate Limiting 配置
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 分鐘
-  max: 100, // 每個 IP 最多 100 個請求
+  max: 200, // 每個 IP 最多 200 個請求
   message: { error: "請求過於頻繁，請稍後再試" },
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use(generalLimiter); // 套用 Rate Limiting 到所有路由
 
 const paymentLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 分鐘
   max: 5, // 每個 IP 最多 5 次支付請求
   message: { error: "支付請求過於頻繁，請稍後再試" },
-  skipSuccessfulRequests: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiResultLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 分鐘
+  max: 10, // 每個 IP 最多 10 次請求
+  message: { error: "查詢請求過於頻繁，請稍後再試" },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // 4. PAYUNi ReturnURL 白名單驗證
@@ -138,9 +150,14 @@ const ALLOWED_RETURN_URLS = [process.env.PAYUNI_RETURN_URL || "http://localhost"
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // 支援 form-urlencoded 格式
-// 提供靜態檔案：根目錄（index.html）與 public 子目錄
-app.use(express.static(path.join(__dirname))); // 根目錄
-app.use(express.static(path.join(__dirname, "public"))); // public 子目錄
+
+// --- 分層速率限制策略 ---
+// 優先提供靜態檔案，不進行速率限制
+app.use(express.static(path.join(__dirname))); // 根目錄 (index.html, result.html)
+app.use(express.static(path.join(__dirname, "public"))); // public 子目錄 (css, js)
+
+// 為所有剩餘的動態路由套用通用的速率限制
+app.use(generalLimiter);
 
 // Session 配置（用於 CSRF 防護）
 app.use(
@@ -450,63 +467,66 @@ app.post("/payuni-webhook", async (req, res) => {
   }
 });
 
-app.post("/", async (req, res) => {
-  // PAYUNi 的 ReturnURL 回調通常是透過表單 POST 到這裡
-  // 需要同時處理 /payuni-webhook 的邏輯
+// PAYUNi ReturnURL 端點
+app.post("/payment-return", async (req, res) => {
   try {
-    logger.info("Received root POST request");
-
-    // 驗證 HashInfo
+    logger.info("Received Payuni return request");
     const { EncryptInfo, HashInfo, Status } = req.body;
 
-    if (!EncryptInfo || !HashInfo) {
-      // 不是 PAYUNi 回調，直接返回成功
-      logger.warn("Missing EncryptInfo or HashInfo in root POST");
-      return res.send("SUCCESS");
-    }
-
-    if (Status !== "SUCCESS") {
-      logger.warn("Payment status is not SUCCESS", { status: Status });
-      return res.send("FAIL");
-    }
-
+    // 驗證 Hash
     const hashKey = process.env.PAYUNI_HASH_KEY;
     const hashIV = process.env.PAYUNI_HASH_IV;
-
-    // 計算並驗證 Hash
     const calculatedHash = sha256(EncryptInfo, hashKey, hashIV);
+
     if (calculatedHash !== HashInfo) {
-      logger.warn("Hash verification failed");
-      return res.send("FAIL");
+      logger.warn("Return URL hash verification failed");
+      // 即使驗證失敗，也導向結果頁，但帶上失敗狀態
+      return res.redirect("/result.html?status=fail&reason=invalid_hash");
     }
 
     // 解密資料
     const merIv = Buffer.from(hashIV, "utf8");
-    const decryptedData = decrypt(EncryptInfo, hashKey, merIv);
+    const decryptedData = querystring.parse(decrypt(EncryptInfo, hashKey, merIv));
 
-    // 解析解密後的資料
-    const parsedData = querystring.parse(decryptedData);
+    const resultData = {
+      status: Status === "SUCCESS" ? "success" : "fail",
+      tradeNo: decryptedData.MerTradeNo,
+      tradeSeq: decryptedData.TradeSeq,
+      tradeAmt: decryptedData.TradeAmt,
+      payTime: decryptedData.PayTime || new Date().toISOString(),
+      message: decryptedData.Message,
+    };
 
-    // 從解密資料中提取訂單資訊
-    const tradeNo = parsedData.MerTradeNo;
-    const tradeSeq = parsedData.TradeSeq;
-    const payStatus = parsedData.Status || "已完成";
+    // 產生一個一次性權杖
+    const token = crypto.randomBytes(32).toString("hex");
 
-    if (!tradeNo) {
-      logger.warn("Missing MerTradeNo in parsed data");
-      return res.send("FAIL");
-    }
+    // 將結果與權杖關聯，並設定 5 分鐘後過期
+    oneTimeTokens.set(token, resultData);
+    setTimeout(() => oneTimeTokens.delete(token), 300000); // 5 minutes
 
-    // 只記錄訂單編號和狀態，不記錄完整資料
-    logger.info("ReturnURL Callback verified", { tradeNo, tradeSeq, payStatus });
-
-    logger.info("ReturnURL processed successfully", { tradeNo, status: payStatus });
-    res.send("SUCCESS");
+    logger.info("Return data processed, redirecting to result page with token", { tradeNo: resultData.tradeNo });
+    // 重新導向到結果頁，並附上權杖
+    res.redirect(`/result.html?token=${token}`);
   } catch (error) {
-    logger.error("Root POST processing error", {
-      message: error.message,
-    });
-    res.send("SUCCESS");
+    logger.error("Return URL processing error", { message: error.message });
+    res.redirect("/result.html?status=fail&reason=processing_error");
+  }
+});
+
+// API 端點，用於前端憑權杖獲取訂單結果
+app.get("/api/order-result/:token", apiResultLimiter, (req, res) => {
+  const { token } = req.params;
+  const resultData = oneTimeTokens.get(token);
+
+  if (resultData) {
+    // 找到資料，回傳它並立即刪除權杖
+    oneTimeTokens.delete(token);
+    logger.info("Order result retrieved with token", { tradeNo: resultData.tradeNo });
+    res.json(resultData);
+  } else {
+    // 找不到權杖（可能已使用或過期）
+    logger.warn("Invalid or expired token received", { token });
+    res.status(404).json({ error: "無效或已過期的連結" });
   }
 });
 
