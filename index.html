@@ -2,17 +2,33 @@
 <html>
   <head>
     <title>Payuni Test</title>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <link rel="preconnect" href="https://challenges.cloudflare.com" />
   </head>
   <body>
     <h1>Test Product</h1>
     <p>Price: 100 TWD</p>
+
+    <div class="cf-turnstile" data-sitekey="YOUR_SITE_KEY"></div>
     <button id="pay-button">Pay with Credit Card</button>
 
     <script>
       document.getElementById("pay-button").addEventListener("click", async () => {
         try {
-          const res = await fetch("http://localhost:3000/create-payment", {
+          // 獲取 Turnstile token
+          const token = await turnstile.getResponse();
+
+          if (!token) {
+            alert("Please complete the CAPTCHA verification");
+            return;
+          }
+
+          const res = await fetch("http://localhost/create-payment", {
             method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ turnstileToken: token }),
           });
           const { payUrl, data } = await res.json();
 
@@ -33,6 +49,7 @@
           form.submit();
         } catch (error) {
           console.error("Error creating payment:", error);
+          alert("Payment creation failed");
         }
       });
     </script>
