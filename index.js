@@ -394,7 +394,6 @@ app.post("/payuni-webhook", async (req, res) => {
 
     if (Status !== "SUCCESS") {
       logger.warn("Payment status is not SUCCESS", { status: Status });
-      return res.send("FAIL");
     }
 
     const hashKey = process.env.PAYUNI_HASH_KEY;
@@ -455,7 +454,7 @@ app.post("/payuni-webhook", async (req, res) => {
     }
 
     logger.info("Webhook processed successfully", { tradeNo, status: payStatus });
-    res.send("SUCCESS");
+    res.send(Status === "SUCCESS" ? "OK" : "FAIL");
   } catch (error) {
     logger.error("Webhook processing error", {
       message: error.message,
