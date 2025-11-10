@@ -10,8 +10,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -240,
-        144
+        -256,
+        160
       ],
       "id": "9472dc4a-3a01-4dd2-bc0d-532de05867fb",
       "name": "Webhook",
@@ -94,6 +94,31 @@
               },
               "renameOutput": true,
               "outputKey": "updateOrder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c8ad0b0e-faea-4a17-87b3-ca0af7162f4c",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "getMyOrders",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "=getMyOrders"
             }
           ]
         },
@@ -115,14 +140,14 @@
           "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
           "mode": "list",
           "cachedResultName": "PAYUNi",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
           "value": 1350185884,
           "mode": "list",
           "cachedResultName": "訂單記錄",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit#gid=1350185884"
         },
         "filtersUI": {
           "values": [
@@ -259,14 +284,14 @@
           "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
           "mode": "list",
           "cachedResultName": "PAYUNi",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
           "value": 1350185884,
           "mode": "list",
           "cachedResultName": "訂單記錄",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit#gid=1350185884"
         },
         "filtersUI": {
           "values": [
@@ -302,14 +327,14 @@
           "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
           "mode": "list",
           "cachedResultName": "PAYUNi",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
           "value": 1350185884,
           "mode": "list",
           "cachedResultName": "訂單記錄",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit#gid=1350185884"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -455,14 +480,14 @@
           "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
           "mode": "list",
           "cachedResultName": "PAYUNi",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit?usp=drivesdk"
         },
         "sheetName": {
           "__rl": true,
           "value": 1350185884,
           "mode": "list",
           "cachedResultName": "訂單記錄",
-          "cachedResultUrl": ""
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit#gid=1350185884"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -665,6 +690,96 @@
       ],
       "id": "2795ed53-2f89-4d6e-bf57-bf940a0e1e12",
       "name": "Format"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
+          "mode": "list",
+          "cachedResultName": "PAYUNi",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1350185884,
+          "mode": "list",
+          "cachedResultName": "訂單記錄",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U/edit#gid=1350185884"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Email",
+              "lookupValue": "={{ $json.body.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        736
+      ],
+      "id": "9052dd1f-b577-4385-afa5-0a56b8cae683",
+      "name": "Find-My-Order",
+      "alwaysOutputData": true,
+      "retryOnFail": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TKwDY3e2ln6z0nGq",
+          "name": "Zeabur-n8n"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseKey": "orders"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        672
+      ],
+      "id": "a82319d1-69ad-4b0d-9ea9-092dd056e2ea",
+      "name": "Respond My-Order-Success",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n\"message\": \"訂單更新失敗\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        848
+      ],
+      "id": "7a55215d-696c-4292-8fdd-e9031c54d378",
+      "name": "Respond My-Order-Failed"
+    },
+    {
+      "parameters": {
+        "jsCode": "const arr = $input.all().map(item => {\n  return { json: {\n\"tradeNo\": item.json['訂單編號'],\n        \"tradeAmt\": item.json['交易金額'],\n        \"status\":item.json['訂單狀態'],\n          \"createdAt\": item.json['建立時間'],\n        \"productName\": item.json['商品名稱']\n  }}\n})\n\nreturn arr"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        704
+      ],
+      "id": "89291bf9-037a-448f-bfc3-da98237eef67",
+      "name": "Format1",
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -698,6 +813,13 @@
         [
           {
             "node": "Find-Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find-My-Order",
             "type": "main",
             "index": 0
           }
@@ -785,6 +907,35 @@
         [
           {
             "node": "Respond Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find-My-Order": {
+      "main": [
+        [
+          {
+            "node": "Format1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond My-Order-Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format1": {
+      "main": [
+        [
+          {
+            "node": "Respond My-Order-Success",
             "type": "main",
             "index": 0
           }
