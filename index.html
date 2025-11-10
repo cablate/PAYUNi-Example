@@ -20,6 +20,7 @@
         <div class="user-info hidden" id="user-info">
           <img id="user-avatar" src="" alt="User Avatar" class="avatar">
           <span id="user-name"></span>
+          <button id="my-orders-btn" class="my-orders-btn">我的訂單</button>
           <a href="/auth/logout" id="logout-btn" class="logout-btn">登出</a>
         </div>
       </div>
@@ -37,6 +38,30 @@
       <div class="loading-content">
         <div class="spinner"></div>
         <div class="loading-text">處理中，請稍候...</div>
+      </div>
+    </div>
+
+    <!-- Order History Modal -->
+    <div class="order-history-modal hidden" id="order-history-modal">
+      <div class="modal-content">
+        <span class="close-btn" id="close-order-modal-btn">&times;</span>
+        <h2>我的訂單記錄</h2>
+        <div class="order-table-container">
+          <table class="order-table">
+            <thead>
+              <tr>
+                <th>訂單日期</th>
+                <th>商品名稱</th>
+                <th>金額</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="order-history-body">
+              <!-- Order rows will be inserted here by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        <div id="no-orders-message" class="hidden">您目前沒有任何訂單。</div>
       </div>
     </div>
 

@@ -337,6 +337,31 @@ app.get("/api/me", (req, res) => {
   }
 });
 
+app.get("/api/my-orders", async (req, res) => {
+  // 1. 檢查使用者是否登入
+  if (!req.session.user) {
+    return res.status(401).json({ error: "請先登入" });
+  }
+
+  try {
+    // 2. 從 session 中獲取使用者的 email
+    const userEmail = req.session.user.email;
+
+    // 3. 呼叫 GAS Webhook
+    const gasResponse = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=getMyOrders`, { email: userEmail });
+
+    if (gasResponse.data && gasResponse.data.orders) {
+      // 4. 成功，回傳訂單資料
+      res.json({ success: true, orders: gasResponse.data.orders });
+    } else {
+      // GAS 回傳失敗
+      throw new Error(gasResponse.data.message || "無法從 GAS 獲取訂單");
+    }
+  } catch (error) {
+    sendSecureError(res, 500, "查詢訂單失敗", { message: error.message });
+  }
+});
+
 app.get("/auth/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {

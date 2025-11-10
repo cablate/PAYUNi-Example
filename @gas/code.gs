@@ -143,6 +143,46 @@ function handleFindOrder(e) {
   }
 }
 
+/**
+ * 根據 Email 查找所有訂單
+ * @param {object} e - 來自 doPost 的請求物件
+ * @returns {object} 回應物件
+ */
+function handleGetMyOrders(e) {
+  try {
+    const { email } = JSON.parse(e.postData.contents);
+    if (!email) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, message: "缺少 email" })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, message: "Sheet 不存在" })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift(); // 取得標頭
+    const emailColumnIndex = 4; // Email 在 E 欄 (索引為 4)
+
+    const userOrders = data.filter(row => row[emailColumnIndex] === email).map(row => {
+      return {
+        tradeNo: row[0],
+        tradeAmt: row[2],
+        status: row[3],
+        createdAt: row[5],
+        productName: row[10]
+      };
+    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // 依建立時間降冪排序
+
+    Logger.log(`為 ${email} 找到 ${userOrders.length} 筆訂單`);
+    return ContentService.createTextOutput(JSON.stringify({ success: true, orders: userOrders })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log(`查找個人訂單失敗: ${error}`);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: `查找個人訂單錯誤: ${error}` })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 
 /**
  * 更新訂單狀態
@@ -206,6 +246,8 @@ function doPost(e) {
       return handlePaymentNotification(e);
     } else if (action === "findOrder") {
       return handleFindOrder(e);
+    } else if (action === "getMyOrders") {
+      return handleGetMyOrders(e);
     } else if (action === "webhook") {
       return handlePaymentNotification(e);
     } else {

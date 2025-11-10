@@ -19,6 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const userAvatarEl = document.getElementById("user-avatar");
   const userNameEl = document.getElementById("user-name");
 
+  // Order History UI elements
+  const myOrdersBtn = document.getElementById("my-orders-btn");
+  const orderHistoryModal = document.getElementById("order-history-modal");
+  const closeOrderModalBtn = document.getElementById("close-order-modal-btn");
+  const orderHistoryBody = document.getElementById("order-history-body");
+  const noOrdersMessage = document.getElementById("no-orders-message");
+
   let csrfToken = "";
   let currentUser = null;
   let clientConfig = {}; // 新增：儲存從後端獲取的配置
@@ -217,6 +224,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // Renders the order history table
+  const renderOrderHistory = (orders) => {
+    orderHistoryBody.innerHTML = ""; // Clear previous results
+    if (orders && orders.length > 0) {
+      noOrdersMessage.classList.add("hidden");
+      orders.forEach(order => {
+        const row = document.createElement("tr");
+        const formattedDate = new Date(order.createdAt).toLocaleString("zh-TW", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        row.innerHTML = `
+          <td>${formattedDate}</td>
+          <td>${order.productName || "N/A"}</td>
+          <td>${order.tradeAmt}</td>
+          <td>${order.status}</td>
+        `;
+        orderHistoryBody.appendChild(row);
+      });
+    } else {
+      noOrdersMessage.classList.remove("hidden");
+    }
+  };
+
   // Initialize the page
   const init = async () => {
     showLoading();
@@ -237,6 +271,41 @@ document.addEventListener("DOMContentLoaded", () => {
       loginBtn.classList.add("loading");
       loginBtn.disabled = true;
       window.location.href = "/auth/google";
+    });
+  }
+
+  // Add event listeners for order history modal
+  if (myOrdersBtn) {
+    myOrdersBtn.addEventListener("click", async () => {
+      showLoading();
+      try {
+        const res = await fetch("/api/my-orders");
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "無法獲取訂單");
+        }
+        renderOrderHistory(data.orders);
+        orderHistoryModal.classList.remove("hidden");
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        hideLoading();
+      }
+    });
+  }
+
+  if (closeOrderModalBtn) {
+    closeOrderModalBtn.addEventListener("click", () => {
+      orderHistoryModal.classList.add("hidden");
+    });
+  }
+  
+  // Close modal if user clicks outside the content area
+  if (orderHistoryModal) {
+    orderHistoryModal.addEventListener("click", (event) => {
+      if (event.target === orderHistoryModal) {
+        orderHistoryModal.classList.add("hidden");
+      }
     });
   }
 });
