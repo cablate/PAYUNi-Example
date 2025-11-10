@@ -1,9 +1,27 @@
+// Turnstile 驗證成功後的回呼函式
+window.onTurnstileSuccess = function(token) {
+  const loginBtn = document.getElementById("login-btn");
+  if (loginBtn) {
+    loginBtn.classList.remove("loading"); // 移除載入狀態
+    loginBtn.disabled = false; // 啟用 Google 登入按鈕
+    loginBtn.title = ""; // 清除提示
+  }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const productListEl = document.getElementById("product-list");
-  const emailEl = document.getElementById("email");
   const errorEl = document.getElementById("error-message");
   const loadingModal = document.getElementById("loading-modal");
+
+  // Auth UI elements
+  const loginBtn = document.getElementById("login-btn");
+  const userInfoEl = document.getElementById("user-info");
+  const userAvatarEl = document.getElementById("user-avatar");
+  const userNameEl = document.getElementById("user-name");
+
   let csrfToken = "";
+  let currentUser = null;
+  let clientConfig = {}; // 新增：儲存從後端獲取的配置
 
   // Helper functions for UI feedback
   const showError = (message) => {
@@ -14,6 +32,67 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearError = () => errorEl.classList.remove("show");
   const showLoading = () => loadingModal.classList.add("show");
   const hideLoading = () => loadingModal.classList.remove("show");
+
+  // Updates UI based on login status
+  const updateUserUI = (user) => {
+    currentUser = user;
+    const payButtons = document.querySelectorAll(".pay-button");
+
+    // 預設隱藏所有認證相關的元素
+    loginBtn.classList.add("hidden");
+    userInfoEl.classList.add("hidden");
+
+    if (user) {
+      // User is logged in
+      userInfoEl.classList.remove("hidden");
+      userAvatarEl.src = user.picture || "";
+      userNameEl.textContent = user.name;
+      // Enable all pay buttons
+      payButtons.forEach(button => {
+        button.disabled = false;
+        button.title = "";
+      });
+    } else {
+      // User is not logged in
+      loginBtn.classList.remove("hidden"); // 顯示登入按鈕
+      loginBtn.classList.add("loading"); // 預設為載入中
+      loginBtn.disabled = true; // 預設為禁用
+      loginBtn.title = "請先完成人機驗證"; // 提示訊息
+
+      // Disable all pay buttons and add a tooltip
+      payButtons.forEach(button => {
+        button.disabled = true;
+        button.title = "請先登入以進行購買";
+      });
+    }
+  };
+
+  // Checks login status with the backend
+  const checkLoginStatus = async () => {
+    try {
+      const res = await fetch("/api/me");
+      if (!res.ok) throw new Error("Failed to check login status");
+      const data = await res.json();
+      // The UI update will be called after products are rendered
+      return data.loggedIn ? data.user : null;
+    } catch (error) {
+      console.error("Error checking login status:", error);
+      // Don't show error to user, just assume logged out
+      return null;
+    }
+  };
+
+  // 新增：從後端獲取客戶端配置
+  const fetchClientConfig = async () => {
+    try {
+      const res = await fetch("/api/client-config");
+      if (!res.ok) throw new Error("Failed to fetch client config");
+      clientConfig = await res.json();
+    } catch (error) {
+      console.error("Error fetching client config:", error);
+      showError("無法載入配置資訊，請稍後再試。");
+    }
+  };
 
   // Fetches CSRF token on page load
   const fetchCsrfToken = async () => {
@@ -35,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.createElement("div");
       card.className = "product-card";
       card.innerHTML = `
-        <img src="${product.image}" alt="${product.name}" class="product-image">
         <div class="product-info">
           <h3 class="product-name">${product.name}</h3>
           <p class="product-description">${product.description}</p>
@@ -47,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Add event listeners to all new buttons
-    document.querySelectorAll(".pay-button").forEach(button => {
+    document.querySelectorAll(".pay-button").forEach((button) => {
       button.addEventListener("click", handlePayment);
     });
   };
@@ -70,20 +148,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const button = event.currentTarget;
     const productID = button.dataset.productId;
 
+    // Double check if user is logged in before proceeding
+    if (!currentUser) {
+      showError("請先登入後再進行購買。");
+      return;
+    }
+
     try {
       clearError();
       button.disabled = true;
       showLoading();
 
-      const email = emailEl.value.trim();
-      if (!email || !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/g.test(email)) {
-        showError("請在上方輸入有效的 Email");
-        button.disabled = false;
-        return;
-      }
+      const paymentPayload = {
+        productID,
+        turnstileToken: turnstile.getResponse(),
+      };
 
-      const turnstileToken = turnstile.getResponse();
-      if (!turnstileToken) {
+      // 使用從後端獲取的配置
+      if (clientConfig.turnstileEnable && !paymentPayload.turnstileToken) {
         showError("請完成人機驗證");
         button.disabled = false;
         return;
@@ -101,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Content-Type": "application/json",
           "X-CSRF-Token": csrfToken,
         },
-        body: JSON.stringify({ email, productID, turnstileToken }),
+        body: JSON.stringify(paymentPayload),
       });
 
       const resData = await res.json();
@@ -124,19 +206,37 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       document.body.appendChild(form);
       form.submit();
-
     } catch (error) {
       console.error("Payment Error:", error);
       showError(error.message || "支付建立失敗，請重試");
+      // Re-enable the button if payment fails
       button.disabled = false;
+    } finally {
+      // Hide loading indicator regardless of outcome, as we are redirecting
+      // hideLoading();
     }
   };
 
   // Initialize the page
   const init = async () => {
+    showLoading();
     await fetchCsrfToken();
+    await fetchClientConfig(); // 在這裡呼叫，確保配置已載入
+    const user = await checkLoginStatus();
     await fetchProducts();
+    updateUserUI(user); // Update UI after products and buttons are on the page
+    hideLoading();
   };
 
   init();
+
+  // Add event listener for the login button
+  if (loginBtn) {
+    loginBtn.addEventListener("click", () => {
+      // Show loading spinner and disable button before redirecting
+      loginBtn.classList.add("loading");
+      loginBtn.disabled = true;
+      window.location.href = "/auth/google";
+    });
+  }
 });

@@ -20,6 +20,7 @@
     "express-session": "^1.18.2",
     "express-validator": "^7.3.0",
     "figlet": "^1.9.3",
+    "google-auth-library": "^10.5.0",
     "helmet": "^8.1.0",
     "winston": "^3.18.3"
   }

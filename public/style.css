@@ -206,3 +206,124 @@ h1 {
   color: #333;
   font-weight: 500;
 }
+
+/* ========================================
+   Auth & User Info
+   ======================================== */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60px; /* 確保容器有最小高度 */
+  margin-bottom: 20px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.google-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  background-color: #ffffff;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease-in-out;
+  position: relative; /* For spinner positioning */
+}
+
+.google-login-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-color: #ccc;
+}
+
+.google-login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  background-color: #f0f0f0;
+  border-color: #e0e0e0;
+}
+
+.google-login-btn:disabled .btn-content {
+  opacity: 0.6; /* 讓圖示和文字也變淡 */
+}
+
+.google-login-btn .btn-content {
+  display: inline-flex;
+  align-items: center;
+  visibility: visible;
+  transition: visibility 0s, opacity 0.2s linear;
+}
+
+.google-login-btn.loading .btn-content {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.google-login-btn .btn-spinner {
+  display: none;
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(0, 0, 0, 0.2);
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.google-login-btn.loading .btn-spinner {
+  display: block;
+}
+
+.google-login-btn.loading {
+  cursor: wait;
+}
+
+.google-login-btn img {
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* 項目之間的間距 */
+}
+
+.user-info .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-info #user-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.user-info .logout-btn {
+  font-size: 14px;
+  color: #666;
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.user-info .logout-btn:hover {
+  background-color: #e9ecef;
+  color: #333;
+}

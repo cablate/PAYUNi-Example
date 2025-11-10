@@ -11,17 +11,24 @@
   <body>
     <div class="container">
       <h1>商品列表</h1>
-      <div class="error" id="error-message"></div>
-
-      <div class="form-group email-group">
-        <label for="email">您的 Email</label>
-        <input type="email" id="email" name="email" required placeholder="your@email.com" />
+      <div class="auth-container">
+        <button class="google-login-btn" id="login-btn" disabled>
+          <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" />
+          使用 Google 登入
+        </button>
+        <div class="turnstile-spinner" id="turnstile-spinner"></div>
+        <div class="user-info hidden" id="user-info">
+          <img id="user-avatar" src="" alt="User Avatar" class="avatar">
+          <span id="user-name"></span>
+          <a href="/auth/logout" id="logout-btn" class="logout-btn">登出</a>
+        </div>
       </div>
+      <div class="error" id="error-message"></div>
 
       <div id="product-list" class="product-grid"></div>
 
       <div class="captcha-wrapper">
-        <div class="cf-turnstile" data-sitekey="0x4AAAAAAB_VtiWmoy0KTCX7"></div>
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAAB_VtiWmoy0KTCX7" data-callback="onTurnstileSuccess"></div>
       </div>
     </div>
 

@@ -14,14 +14,35 @@ const csrf = require("csurf");
 const logger = require("./utils/logger");
 const { printStartupBanner, printEnvironmentConfig, printSuccess, printWarning, printError } = require("./startup");
 const products = require("./data/products"); // 引入商品資料
+const { OAuth2Client } = require("google-auth-library");
 
 require("dotenv").config();
+
+// ++++++++++ Google OAuth Client 初始化 ++++++++++
+const oauth2Client = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+// +++++++++++++++++++++++++++++++++++++++++++++
 
 // 印出啟動畫面
 printStartupBanner();
 
 // 檢查必要的環境變數
-const requiredEnvVars = ["PAYUNI_API_URL", "PAYUNI_MERCHANT_ID", "PAYUNI_HASH_KEY", "PAYUNI_HASH_IV", "TURNSTILE_SECRET_KEY", "NOTIFY_URL", "GAS_WEBHOOK_URL"];
+const requiredEnvVars = [
+  "PAYUNI_API_URL",
+  "PAYUNI_MERCHANT_ID",
+  "PAYUNI_HASH_KEY",
+  "PAYUNI_HASH_IV",
+  "TURNSTILE_SECRET_KEY",
+  "NOTIFY_URL",
+  "GAS_WEBHOOK_URL",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_REDIRECT_URI",
+  "SESSION_SECRET",
+];
 
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
@@ -58,18 +79,15 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        // 移除 'unsafe-inline'，所有 script 與 style 必須來自明確的來源或以 nonce 方式加載
-        scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
-        styleSrc: ["'self'", "https://challenges.cloudflare.com"], // 修正：移除 'unsafe-inline'
-        frameSrc: ["https://challenges.cloudflare.com"],
+        // 允許 Google 登入的 script 和圖片來源
+        scriptSrc: ["'self'", "https://challenges.cloudflare.com", "https://accounts.google.com/gsi/client"],
+        styleSrc: ["'self'", "https://challenges.cloudflare.com"],
+        frameSrc: ["https://challenges.cloudflare.com", "https://accounts.google.com/gsi/"],
         connectSrc: ["'self'", "https://challenges.cloudflare.com", process.env.DOMAIN],
-        // 限制 img-src 為自己站域、Cloudflare（Turnstile）以及允許 data: URI（小圖示）
-        imgSrc: ["'self'", "https://challenges.cloudflare.com", "data:"],
-        // 明確定義 font-src，避免使用廣泛的 https: 通配
+        imgSrc: ["'self'", "https://challenges.cloudflare.com", "data:", "https://lh3.googleusercontent.com", "https://developers.google.com"], // 允許 Google 個人資料圖片和登入按鈕圖示
         fontSrc: ["'self'", "data:"],
-        objectSrc: ["'none'"], // 新增：禁止載入舊式外掛程式
+        objectSrc: ["'none'"],
         formAction: ["'self'", "https://sandbox-api.payuni.com.tw", "https://api.payuni.com.tw"],
-        // 防止被嵌入到其他網站中的 iframe（只允許自己的頁面嵌入自己）
         frameAncestors: ["'self'"],
       },
     },
@@ -160,12 +178,12 @@ app.use(express.static(path.join(__dirname, "public"))); // public 子目錄 (cs
 // 為所有剩餘的動態路由套用通用的速率限制
 app.use(generalLimiter);
 
-// Session 配置（用於 CSRF 防護）
+// Session 配置（用於 CSRF 防護 & Google 登入）
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
+    secret: process.env.SESSION_SECRET, // 已從 .env 讀取
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // 改為 false，避免為未登入使用者建立 session
     cookie: {
       secure: process.env.NODE_ENV === "production", // 生產環境使用 HTTPS only
       httpOnly: true, // 防止 JavaScript 存取
@@ -262,6 +280,82 @@ app.use((req, res, next) => {
 // 路由與業務邏輯
 // ========================================
 
+// ++++++++++++++ Google Auth 路由 ++++++++++++++
+app.get("/auth/google", (req, res) => {
+  const authorizeUrl = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: ["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
+    prompt: "consent",
+  });
+  res.redirect(authorizeUrl);
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) {
+      return sendSecureError(res, 400, "Google 登入失敗：缺少授權碼");
+    }
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    const ticket = await oauth2Client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    // 將使用者資訊存入 session
+    req.session.user = {
+      id: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+    };
+
+    // 確保 session 儲存後再重導向
+    req.session.save((err) => {
+      if (err) {
+        return sendSecureError(res, 500, "Session 儲存失敗", { message: err.message });
+      }
+      logger.info("User logged in successfully and session saved", { userId: payload.sub, email: payload.email });
+      // 登入成功後導回首頁
+      res.redirect("/");
+    });
+  } catch (error) {
+    sendSecureError(res, 500, "Google 登入驗證過程中發生錯誤", { message: error.message });
+  }
+});
+
+app.get("/api/me", (req, res) => {
+  if (req.session.user) {
+    res.json({ loggedIn: true, user: req.session.user });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
+
+app.get("/auth/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return sendSecureError(res, 500, "登出時發生錯誤");
+    }
+    // 清除 cookie 並導向首頁
+    res.clearCookie("connect.sid"); // connect.sid 是 express-session 預設的 cookie 名稱
+    res.redirect("/");
+  });
+});
+// ++++++++++++++++++++++++++++++++++++++++++++++++
+
+// 新增：提供前端配置資訊的 API
+app.get("/api/client-config", (req, res) => {
+  res.json({
+    turnstileEnable: process.env.TURNSTILE_ENABLE === "true",
+  });
+});
+
 // CSRF Token 取得端點：使用 csrfProtection 中間件以初始化 token
 app.get("/csrf-token", csrfProtection, (req, res) => {
   try {
@@ -280,8 +374,7 @@ app.get("/api/products", (req, res) => {
 
 // 定義 /create-payment 的驗證規則
 const createPaymentValidation = [
-  body("email").trim().notEmpty().withMessage("Email 不可為空").isEmail().withMessage("Email 格式不正確").normalizeEmail().isLength({ max: 100 }).withMessage("Email 長度不可超過 100 字元"),
-
+  // Email 驗證已移除，因為現在強制要求登入
   body("turnstileToken")
     .if(() => process.env.TURNSTILE_ENABLE === "true")
     .notEmpty()
@@ -293,13 +386,20 @@ const createPaymentValidation = [
 ];
 
 app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req, res) => {
+  // 強制要求登入
+  if (!req.session.user) {
+    return res.status(401).json({ error: "請先登入後再操作" });
+  }
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn("Validation failed", { errors: errors.array() });
     return res.status(400).json({ error: "輸入資料不正確", details: errors.array().map((e) => e.msg) });
   }
 
-  const { turnstileToken, email, productID } = req.body;
+  // 使用者已登入，從 session 取得 email
+  const userEmail = req.session.user.email;
+  const { turnstileToken, productID } = req.body;
 
   // 根據 productID 查找商品
   const product = products.find((p) => p.id === productID);
@@ -330,18 +430,21 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
 
   if (process.env.GAS_WEBHOOK_URL) {
     try {
-      const findRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=findOrder`, { email: email || "", productID: product.id });
+      const findRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=findOrder`, { email: userEmail, productID: product.id });
       if (findRes.data?.success && findRes.data?.order) {
+        logger.info(JSON.stringify(findRes.data.order));
         logger.info("Found existing pending order, reusing it.", { tradeNo: findRes.data.order.tradeNo });
         const { tradeNo: existingTradeNo, tradeAmt: existingTradeAmt } = findRes.data.order;
         const timestamp = Math.round(new Date().getTime() / 1000);
         const returnUrl = process.env.PAYUNI_RETURN_URL || ALLOWED_RETURN_URLS[0];
 
-        const tradeData = { MerID: merID, Version: "1.0", MerTradeNo: existingTradeNo, TradeAmt: existingTradeAmt, ProdDesc: product.name, NotifyURL: process.env.NOTIFY_URL, ReturnURL: returnUrl, PayType: "C", Timestamp: timestamp };
+        const tradeData = { MerID: merID, Version: "1.0", MerTradeNo: existingTradeNo, TradeAmt: existingTradeAmt, ProdDesc: product.name, NotifyURL: process.env.NOTIFY_URL, ReturnURL: returnUrl, PayType: "C", Timestamp: timestamp, UsrMail: userEmail, UsrMailFix: 1 };
         const plaintext = querystring.stringify(tradeData);
         const merKey = hashKey;
         const merIv = Buffer.from(hashIV, "utf8");
         const encryptStr = encrypt(plaintext, merKey, merIv);
+
+        logger.info("Reusing existing order for payment.", { tradeNo: existingTradeNo });
 
         return res.json({ payUrl: payuniApiUrl, data: { ...tradeData, EncryptInfo: encryptStr, HashInfo: sha256(encryptStr, merKey, merIv) } });
       }
@@ -356,7 +459,7 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
   const timestamp = Math.round(new Date().getTime() / 1000);
   const returnUrl = process.env.PAYUNI_RETURN_URL || ALLOWED_RETURN_URLS[0];
 
-  const tradeData = { MerID: merID, Version: "1.0", MerTradeNo: tradeNo, TradeAmt: tradeAmt, ProdDesc: prodDesc, NotifyURL: process.env.NOTIFY_URL, ReturnURL: returnUrl, PayType: "C", Timestamp: timestamp };
+  const tradeData = { MerID: merID, Version: "1.0", MerTradeNo: tradeNo, TradeAmt: tradeAmt, ProdDesc: prodDesc, NotifyURL: process.env.NOTIFY_URL, ReturnURL: returnUrl, PayType: "C", Timestamp: timestamp, UsrMail: userEmail, UsrMailFix: 1 };
   const plaintext = querystring.stringify(tradeData);
   const merKey = hashKey;
   const merIv = Buffer.from(hashIV, "utf8");
@@ -365,7 +468,23 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
   try {
     if (process.env.GAS_WEBHOOK_URL) {
       try {
-        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, { tradeNo, merID, tradeAmt, email: email || "", productID: product.id, productName: product.name });
+        // 準備傳遞到 Google Apps Script 的資料
+        const gasOrderData = {
+          tradeNo,
+          merID,
+          tradeAmt,
+          email: userEmail,
+          productID: product.id,
+          productName: product.name,
+          // 如果使用者已登入，則傳遞使用者資訊
+          ...(req.session.user && {
+            userGoogleId: req.session.user.id,
+            userEmail: req.session.user.email,
+            userName: req.session.user.name,
+          }),
+        };
+
+        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, gasOrderData);
         if (!gasRes.data?.success) {
           logger.warn("GAS failed to create order", { tradeNo, response: gasRes.data });
           return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });

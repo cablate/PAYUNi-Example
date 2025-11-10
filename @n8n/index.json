@@ -1,0 +1,800 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "actions",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -240,
+        144
+      ],
+      "id": "9472dc4a-3a01-4dd2-bc0d-532de05867fb",
+      "name": "Webhook",
+      "webhookId": "7b45774f-4166-4ea3-8992-ff2b804e297b"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b1318402-94c5-4b3b-bf09-330f3c0425a5",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "findOrder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "findOrder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "createOrder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8e15b273-c0a5-42db-8dad-7423aef0b1e2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "createOrder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ae06156b-f32b-4ffc-9fab-40419e7b7eb7",
+                    "leftValue": "={{ $json.query.action }}",
+                    "rightValue": "updateOrder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "updateOrder"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -16,
+        128
+      ],
+      "id": "afca8d9f-6b19-466c-bdbf-54c0e90ad1f0",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
+          "mode": "list",
+          "cachedResultName": "PAYUNi",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1350185884,
+          "mode": "list",
+          "cachedResultName": "訂單記錄",
+          "cachedResultUrl": ""
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Email",
+              "lookupValue": "={{ $json.body.email }}"
+            },
+            {
+              "lookupColumn": "商品ID",
+              "lookupValue": "={{ $json.body.productID }}"
+            },
+            {
+              "lookupColumn": "訂單狀態",
+              "lookupValue": "待支付"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        -144
+      ],
+      "id": "d011f3ab-a7f4-40bd-b4f5-c094236cfc5d",
+      "name": "Find-ToBePaid",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TKwDY3e2ln6z0nGq",
+          "name": "Zeabur-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "67f5c15a-1d21-4fc1-9c82-60eec16e47a1",
+              "leftValue": "={{$input.first().json.isEmpty() }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        -144
+      ],
+      "id": "ea74dd16-cecd-49ee-aa34-d5eb99a04c64",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"order\": {{$json.toJsonString()}}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        -224
+      ],
+      "id": "08f17cf5-7748-4e87-9af0-67be3accf4bf",
+      "name": "Respond Order"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"success\": false, \"message\": \"找不到訂單\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        -80
+      ],
+      "id": "c83ffb09-1554-467a-bac8-e239a074223b",
+      "name": "Respond NotFound"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n\"message\": \"訂單建立成功\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        432,
+        80
+      ],
+      "id": "4712415b-dc9d-4adb-aac1-ccdddc97ad63",
+      "name": "Respond CreateSuccess"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n\"message\": \"訂單建立失敗\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        432,
+        208
+      ],
+      "id": "da781b8c-0a5d-49a9-9daa-45b2d1dfc56c",
+      "name": "Respond CreateFailed"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
+          "mode": "list",
+          "cachedResultName": "PAYUNi",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1350185884,
+          "mode": "list",
+          "cachedResultName": "訂單記錄",
+          "cachedResultUrl": ""
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "訂單編號",
+              "lookupValue": "={{ $json.body.MerTradeNo }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        432
+      ],
+      "id": "1e7f337d-1333-4572-914f-83b45df5c20e",
+      "name": "Find-Order",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TKwDY3e2ln6z0nGq",
+          "name": "Zeabur-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
+          "mode": "list",
+          "cachedResultName": "PAYUNi",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1350185884,
+          "mode": "list",
+          "cachedResultName": "訂單記錄",
+          "cachedResultUrl": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "訂單編號": "={{ $json.body.tradeNo }}",
+            "商店ID": "={{ $json.body.merID }}",
+            "交易金額": "={{ $json.body.tradeAmt }}",
+            "訂單狀態": "待支付",
+            "Email": "={{ $json.body.email }}",
+            "商品ID": "={{ $json.body.productID }}",
+            "商品名稱": "={{ $json.body.productName }}",
+            "建立時間": "={{DateTime.now().format('yyyy-MM-dd HH:mm:ss')}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "訂單編號",
+              "displayName": "訂單編號",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "商店ID",
+              "displayName": "商店ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "交易金額",
+              "displayName": "交易金額",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "訂單狀態",
+              "displayName": "訂單狀態",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "建立時間",
+              "displayName": "建立時間",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "完成時間",
+              "displayName": "完成時間",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "交易序號",
+              "displayName": "交易序號",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "備註",
+              "displayName": "備註",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "商品ID",
+              "displayName": "商品ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "商品名稱",
+              "displayName": "商品名稱",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        144
+      ],
+      "id": "fccb73d3-363e-4b11-9d4b-daae2a4ef914",
+      "name": "Create-Order",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TKwDY3e2ln6z0nGq",
+          "name": "Zeabur-n8n"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1QNf56PGSzWs1yeAfT1L2Uo4iiB9QWvidehUS_9mnn3U",
+          "mode": "list",
+          "cachedResultName": "PAYUNi",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1350185884,
+          "mode": "list",
+          "cachedResultName": "訂單記錄",
+          "cachedResultUrl": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "訂單編號": "={{ $('Switch').item.json.body.MerTradeNo }}",
+            "訂單狀態": "={{ $('Switch').item.json.body.Status }}",
+            "完成時間": "={{DateTime.now().format('yyyy-MM-dd HH:mm:ss')}}",
+            "交易序號": "={{ $('Switch').item.json.body.TradeSeq }}",
+            "備註": "={{ $('Switch').item.json.body.rawData.toJsonString() }}",
+            "商店ID": "={{ $json['商店ID'] }}",
+            "商品ID": "={{ $json['商品ID'] }}",
+            "商品名稱": "={{ $json['商品名稱'] }}",
+            "交易金額": "={{ $json['交易金額'] }}",
+            "建立時間": "={{ $json['建立時間'] }}",
+            "Email": "={{ $json.Email }}"
+          },
+          "matchingColumns": [
+            "訂單編號"
+          ],
+          "schema": [
+            {
+              "id": "訂單編號",
+              "displayName": "訂單編號",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "商店ID",
+              "displayName": "商店ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "交易金額",
+              "displayName": "交易金額",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "訂單狀態",
+              "displayName": "訂單狀態",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "建立時間",
+              "displayName": "建立時間",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "完成時間",
+              "displayName": "完成時間",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "交易序號",
+              "displayName": "交易序號",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "備註",
+              "displayName": "備註",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "商品ID",
+              "displayName": "商品ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "商品名稱",
+              "displayName": "商品名稱",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        432,
+        432
+      ],
+      "id": "c5ecf803-c69c-4ad0-bcea-72f0af168df0",
+      "name": "Update-Order",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TKwDY3e2ln6z0nGq",
+          "name": "Zeabur-n8n"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n\"message\": \"訂單更新成功\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        368
+      ],
+      "id": "73caf331-918e-43a0-8282-61804ff2ad03",
+      "name": "Respond UpdateSuccess"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n\"message\": \"訂單更新失敗\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        496
+      ],
+      "id": "8477310f-8e6c-4310-884f-9456ff73f1c6",
+      "name": "Respond UpdateFailed"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n\"tradeNo\": $input.first().json['訂單編號'],\n        \"merID\": $input.first().json['商店ID'],\n        \"tradeAmt\": $input.first().json['交易金額'],\n        \"status\": $input.first().json['訂單狀態'],\n        \"email\": $input.first().json.Email,\n        \"productID\": $input.first().json['商品ID']\n  }"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -224
+      ],
+      "id": "2795ed53-2f89-4d6e-bf57-bf940a0e1e12",
+      "name": "Format"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Find-ToBePaid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create-Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find-Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find-ToBePaid": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond NotFound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find-Order": {
+      "main": [
+        [
+          {
+            "node": "Update-Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create-Order": {
+      "main": [
+        [
+          {
+            "node": "Respond CreateSuccess",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond CreateFailed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update-Order": {
+      "main": [
+        [
+          {
+            "node": "Respond UpdateSuccess",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond UpdateFailed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format": {
+      "main": [
+        [
+          {
+            "node": "Respond Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f079a1ba8f5a48acc497a7765366a05ac125896e8efd3c2b693faaa714a7378c"
+  }
+}
