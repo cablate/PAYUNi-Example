@@ -19,30 +19,14 @@ const { OAuth2Client } = require("google-auth-library");
 require("dotenv").config();
 
 // ++++++++++ Google OAuth Client 初始化 ++++++++++
-const oauth2Client = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
+const oauth2Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URI);
 // +++++++++++++++++++++++++++++++++++++++++++++
 
 // 印出啟動畫面
 printStartupBanner();
 
 // 檢查必要的環境變數
-const requiredEnvVars = [
-  "PAYUNI_API_URL",
-  "PAYUNI_MERCHANT_ID",
-  "PAYUNI_HASH_KEY",
-  "PAYUNI_HASH_IV",
-  "TURNSTILE_SECRET_KEY",
-  "NOTIFY_URL",
-  "GAS_WEBHOOK_URL",
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_CLIENT_SECRET",
-  "GOOGLE_REDIRECT_URI",
-  "SESSION_SECRET",
-];
+const requiredEnvVars = ["PAYUNI_API_URL", "PAYUNI_MERCHANT_ID", "PAYUNI_HASH_KEY", "PAYUNI_HASH_IV", "TURNSTILE_SECRET_KEY", "NOTIFY_URL", "GAS_WEBHOOK_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "SESSION_SECRET"];
 
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
@@ -62,6 +46,13 @@ if (!process.env.PAYUNI_API_URL.includes("sandbox")) {
 
 const app = express();
 const port = 80;
+
+// 如果在 production 且在 proxy 後面，信任 proxy
+// Zeabur 需要這個設定才能正確辨識 HTTPS
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+  logger.info("Production mode: trust proxy enabled");
+}
 
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
@@ -190,6 +181,8 @@ app.use(
       sameSite: "lax", // CSRF 防護
       maxAge: 1000 * 60 * 60 * 24, // 24 小時
     },
+    name: "sessionId", // 自定義 cookie 名稱，更明確
+    proxy: process.env.NODE_ENV === "production", // Production 環境通常在 proxy 後面（如 Zeabur）
   })
 );
 
@@ -283,7 +276,7 @@ app.use((req, res, next) => {
 // ++++++++++++++ Google Auth 路由 ++++++++++++++
 app.get("/auth/google", (req, res) => {
   const authorizeUrl = oauth2Client.generateAuthUrl({
-    access_type: "offline",
+    access_type: "online", // 改為 online，因為只需要一次性登入驗證
     scope: ["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
     prompt: "consent",
   });
@@ -294,6 +287,7 @@ app.get("/auth/google/callback", async (req, res) => {
   try {
     const { code } = req.query;
     if (!code) {
+      logger.error("Missing authorization code in callback");
       return sendSecureError(res, 400, "Google 登入失敗：缺少授權碼");
     }
 
@@ -318,6 +312,7 @@ app.get("/auth/google/callback", async (req, res) => {
     // 確保 session 儲存後再重導向
     req.session.save((err) => {
       if (err) {
+        logger.error("Session save failed", { error: err.message, sessionID: req.sessionID });
         return sendSecureError(res, 500, "Session 儲存失敗", { message: err.message });
       }
       logger.info("User logged in successfully and session saved", { userId: payload.sub, email: payload.email });
@@ -325,6 +320,10 @@ app.get("/auth/google/callback", async (req, res) => {
       res.redirect("/");
     });
   } catch (error) {
+    logger.error("Google auth callback error", {
+      message: error.message,
+      stack: error.stack,
+    });
     sendSecureError(res, 500, "Google 登入驗證過程中發生錯誤", { message: error.message });
   }
 });
@@ -348,7 +347,15 @@ app.get("/api/my-orders", async (req, res) => {
     const userEmail = req.session.user.email;
 
     // 3. 呼叫 GAS Webhook
-    const gasResponse = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=getMyOrders`, { email: userEmail });
+    const gasResponse = await axios.post(
+      `${process.env.GAS_WEBHOOK_URL}?action=getMyOrders`,
+      { email: userEmail },
+      {
+        headers: {
+          Cookie: `token=${process.env.WEBHOOK_TOKEN}`,
+        },
+      }
+    );
 
     if (gasResponse.data && gasResponse.data.orders) {
       // 4. 成功，回傳訂單資料
@@ -363,12 +370,16 @@ app.get("/api/my-orders", async (req, res) => {
 });
 
 app.get("/auth/logout", (req, res) => {
+  logger.info("Logout requested", { sessionID: req.sessionID, hasUser: !!req.session?.user });
+
   req.session.destroy((err) => {
     if (err) {
+      logger.error("Logout error", { error: err.message });
       return sendSecureError(res, 500, "登出時發生錯誤");
     }
     // 清除 cookie 並導向首頁
-    res.clearCookie("connect.sid"); // connect.sid 是 express-session 預設的 cookie 名稱
+    res.clearCookie("sessionId"); // 使用新的 cookie 名稱
+    logger.info("User logged out successfully");
     res.redirect("/");
   });
 });
@@ -455,7 +466,15 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
 
   if (process.env.GAS_WEBHOOK_URL) {
     try {
-      const findRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=findOrder`, { email: userEmail, productID: product.id });
+      const findRes = await axios.post(
+        `${process.env.GAS_WEBHOOK_URL}?action=findOrder`,
+        { email: userEmail, productID: product.id },
+        {
+          headers: {
+            Cookie: `token=${process.env.WEBHOOK_TOKEN}`,
+          },
+        }
+      );
       if (findRes.data?.success && findRes.data?.order) {
         logger.info(JSON.stringify(findRes.data.order));
         logger.info("Found existing pending order, reusing it.", { tradeNo: findRes.data.order.tradeNo });
@@ -509,7 +528,11 @@ app.post("/create-payment", paymentLimiter, createPaymentValidation, async (req,
           }),
         };
 
-        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, gasOrderData);
+        const gasRes = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=createOrder`, gasOrderData, {
+          headers: {
+            Cookie: `token=${process.env.WEBHOOK_TOKEN}`,
+          },
+        });
         if (!gasRes.data?.success) {
           logger.warn("GAS failed to create order", { tradeNo, response: gasRes.data });
           return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
@@ -580,7 +603,11 @@ app.post("/payuni-webhook", async (req, res) => {
           rawData: parsedData,
         };
 
-        const gasResponse = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=updateOrder`, updateData);
+        const gasResponse = await axios.post(`${process.env.GAS_WEBHOOK_URL}?action=updateOrder`, updateData, {
+          headers: {
+            Cookie: `token=${process.env.WEBHOOK_TOKEN}`,
+          },
+        });
 
         if (!gasResponse.data?.success) {
           logger.warn("GAS failed to update order", { tradeNo });
