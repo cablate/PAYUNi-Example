@@ -20,7 +20,8 @@ jobs:
         env:
           STRIX_LLM: ${{ secrets.STRIX_LLM }}   # 例如 openai/gpt-5
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        run: strix -n --target ./
+          PYTHONUNBUFFERED: "1"
+        run: strix -n -t ./
 
       - name: Upload Strix Reports
         uses: actions/upload-artifact@v4
