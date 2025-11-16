@@ -1,0 +1,29 @@
+name: Strix Security Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  strix-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Strix Agent
+        run: pipx install strix-agent
+
+      - name: Run Strix Scan
+        env:
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}   # 例如 openai/gpt-5
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: strix -n --target ./
+
+      - name: Upload Strix Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: strix-agent-runs
+          path: agent_runs/
