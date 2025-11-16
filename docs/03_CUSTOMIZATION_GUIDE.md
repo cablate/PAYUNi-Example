@@ -6,6 +6,25 @@
 
 ---
 
+## 閱讀前提
+
+- 建議先讀 [00_DESIGN_PHILOSOPHY.md](./00_DESIGN_PHILOSOPHY.md) 了解設計理念
+- 建議先讀 [01_SYSTEM_ARCHITECTURE.md](./01_SYSTEM_ARCHITECTURE.md) 了解系統流程
+- 建議先讀 [02_SECURITY_DEEP_DIVE.md](./02_SECURITY_DEEP_DIVE.md) 了解安全考量
+
+## 本文件涵蓋
+
+本指南聚焦於「如何修改現有的系統以符合您的需求」。從簡單的商品管理、樣式調整，到進階的功能擴充，都有涵蓋。
+
+## 讀完後可以
+
+- 自信地新增、修改或刪除商品
+- 調整網站的外觀和品牌風格
+- 理解系統的各個部分如何相互配合
+- 知道進階擴充時應該修改哪些檔案
+
+---
+
 ## 1. 新增、修改或刪除商品
 
 這是最常見的需求。我們將商品資料集中管理，讓修改變得非常簡單。
@@ -18,16 +37,17 @@
 // data/products.js 檔案結構範例
 const products = [
   {
-    id: 'prod_001', // 唯一的商品 ID
-    name: '金流整合實戰包', // 商品名稱
+    id: "prod_001", // 唯一的商品 ID
+    name: "金流整合實戰包", // 商品名稱
     price: 1200, // 商品價格
-    image: 'https://via.placeholder.com/150' // 商品圖片路徑
+    image: "https://via.placeholder.com/150", // 商品圖片路徑
   },
   // ... 其他商品
 ];
 ```
 
 ### 如何新增商品？
+
 1.  複製一個現有的商品物件 `{...}`。
 2.  將 `id` 修改為一個新的、不重複的字串，例如 `prod_003`。
 3.  更新 `name`, `price`, `image` 的值。
@@ -35,6 +55,7 @@ const products = [
 5.  **重新啟動您的後端伺服器** (`npm start`)，新的商品就會出現在頁面上。
 
 ### 如何修改或刪除商品？
+
 - **修改**: 直接在 `products.js` 中找到對應的商品物件，修改其 `name` 或 `price` 等屬性，儲存並重啟伺服器。
 - **刪除**: 從 `products` 陣列中，將該商品的整個物件 `{...}` 刪除，儲存並重啟伺服器。
 
@@ -45,10 +66,11 @@ const products = [
 您可以輕鬆地調整網站的顏色、字體等，使其符合您的品牌視覺。
 
 - **目標檔案**:
-    - `public/style.css` (控制首頁 `index.html`)
-    - `public/result.style.css` (控制結果頁 `result.html`)
+  - `public/style.css` (控制首頁 `index.html`)
+  - `public/result.style.css` (控制結果頁 `result.html`)
 
 ### 範例：更換網站主色系
+
 1.  打開 `public/style.css`。
 2.  在檔案的最上方，您會找到 `:root` 區塊，這裡定義了全站的顏色變數。
     ```css
@@ -63,19 +85,22 @@ const products = [
 4.  儲存檔案，然後**刷新您的瀏覽器**即可看到變更。建議使用 `Ctrl+Shift+R` (或 `Cmd+Shift+R`) 強制刷新以清除快取。
 
 ### 範例：更換全站字體
+
 1.  前往 [Google Fonts](https://fonts.google.com/) 網站，挑選您喜歡的字體 (例如 `Noto Sans TC`)。
 2.  取得 `@import` 程式碼。
 3.  將該 `@import` 語法貼到 `public/style.css` 的最頂端。
 4.  修改 `body` 的 `font-family` 屬性：
+
     ```css
     /* public/style.css */
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+    @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap");
 
     body {
-      font-family: 'Noto Sans TC', sans-serif; /* 將 'Noto Sans TC' 替換為您選擇的字體 */
+      font-family: "Noto Sans TC", sans-serif; /* 將 'Noto Sans TC' 替換為您選擇的字體 */
       /* ... 其他樣式 */
     }
     ```
+
 5.  儲存並刷新瀏覽器。
 
 ---
@@ -87,6 +112,7 @@ const products = [
 - **目標檔案**: `index.html`, `result.html`
 
 **操作步驟**:
+
 1.  用您的編輯器打開 `index.html` 或 `result.html`。
 2.  使用編輯器的搜尋功能 (Ctrl+F / Cmd+F) 找到您想修改的文字。
 3.  直接替換成您想要的內容。
@@ -102,6 +128,7 @@ const products = [
 
 1.  **修改資料 (`data/products.js`)**:
     在商品物件中新增 `description` 欄位。
+
     ```javascript
     {
       id: 'prod_001',
@@ -113,20 +140,23 @@ const products = [
     ```
 
 2.  **修改前端 (`index.html` & `public/app.js`)**:
+
     - 在 `index.html` 中，找到渲染商品卡片的地方，新增一個 `<p>` 標籤來顯示描述。
     - 在 `public/app.js` 中，修改渲染商品的函式，讓它能讀取並顯示 `product.description`。
 
 3.  **修改後端 (`index.js`)**:
     當您希望這個 `description` 能被記錄到訂單中時：
+
     - 在 `/api/create-order` 端點，確保您有從 `products.js` 讀取到這個屬性。
     - 在觸發 GAS Webhook 的地方，將 `description` 加入到傳送的 JSON 物件中。
+
     ```javascript
     // index.js (示意)
     const payloadToGas = {
-      orderId: '...',
+      orderId: "...",
       productName: product.name,
       productDescription: product.description, // 將描述傳過去
-      price: product.price
+      price: product.price,
     };
     // ... fetch(GAS_WEBHOOK_URL, ...)
     ```
@@ -142,8 +172,44 @@ const products = [
       e.parameter.orderId,
       e.parameter.productName,
       e.parameter.productDescription, // 寫入新欄位
-      e.parameter.price
+      e.parameter.price,
     ]);
     ```
 
 這個進階範例展示了系統的靈活性。您可以依照同樣的模式，新增任何您需要的屬性。
+
+---
+
+## 重要提醒
+
+修改不同類型的檔案需要不同的「重新載入」方式：
+
+| 修改檔案類型                        | 需要做什麼                                        |
+| ----------------------------------- | ------------------------------------------------- |
+| `data/products.js`                  | 重啟後端伺服器 (`npm start`)                      |
+| `index.js` (後端邏輯)               | 重啟後端伺服器 (`npm start`)                      |
+| `public/style.css`, `public/app.js` | 刷新瀏覽器 (Ctrl+Shift+R 或 Cmd+Shift+R 強制刷新) |
+| `index.html`, `result.html`         | 刷新瀏覽器 (Ctrl+Shift+R 或 Cmd+Shift+R 強制刷新) |
+| `@gas/code.gs`                      | 在 Google Apps Script 編輯器中重新部署            |
+
+---
+
+## 下一步
+
+| 如果你想...      | 推薦閱讀                                                      |
+| ---------------- | ------------------------------------------------------------- |
+| 部署到線上環境   | [04_DEPLOYMENT.md](./04_DEPLOYMENT.md)                        |
+| 複習安全考量     | 回到 [02_SECURITY_DEEP_DIVE.md](./02_SECURITY_DEEP_DIVE.md)   |
+| 了解系統整體架構 | 回到 [01_SYSTEM_ARCHITECTURE.md](./01_SYSTEM_ARCHITECTURE.md) |
+| 遇到問題         | 查看 `README.md` 中的常見問題或故障排查                       |
+
+### 進階技巧
+
+當您對系統更加熟悉後，您可以考慮：
+
+- 整合 CI/CD 流程來自動化部署
+- 使用更複雜的資料庫來取代 Google Sheets
+- 添加更多支付方式或金流平台
+- 建立使用者帳戶系統來追蹤購買紀錄
+
+記住：本實戰包提供的是一個穩固的基礎。您有完全的自由去擴展它，只要遵循同樣的安全原則即可。
