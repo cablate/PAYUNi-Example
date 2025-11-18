@@ -9,7 +9,7 @@
  */
 
 import dotenv from "dotenv";
-import { getOrderDatabase } from "./src/services/database/OrderDatabaseProvider.js";
+import { getOrderDatabase } from "./src/services/database/provider.js";
 import { printError, printStartupBanner, printSuccess } from "./src/utils/startup.js";
 
 dotenv.config();

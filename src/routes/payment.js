@@ -4,14 +4,15 @@ import { validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants.js";
 import {
-    createOrderInGAS,
-    decryptWebhookData,
-    findExistingOrder,
-    generatePaymentData,
-    updateOrderInGAS,
-    verifyTurnstile,
-    verifyWebhookHash,
-} from "../services/payment.js";
+  createOrderInGAS,
+  decryptWebhookData,
+  findExistingOrder,
+  generatePaymentData,
+  updateOrderInGAS,
+  verifyTurnstile,
+  verifyWebhookHash,
+} from "../services/index.js";
+import { getPayuniSDK } from "../services/payment/provider.js";
 import logger from "../utils/logger.js";
 import { createPaymentValidation } from "../utils/validators.js";
 
@@ -138,6 +139,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
 
       // 驗證 Hash
       if (!verifyWebhookHash(EncryptInfo, HashInfo)) {
+        logger.warn("Webhook Hash verification failed");
         return res.send("FAIL");
       }
 
@@ -154,21 +156,76 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
 
       logger.info("Webhook verified", { tradeNo, tradeSeq, payStatus });
 
-      // 更新訂單狀態
+      // ========================================
+      // 🆕 二次確認：向 Payuni API 查詢訂單狀態
+      // ========================================
+      let queryResult = null;
+      try {
+        const sdk = getPayuniSDK();
+        queryResult = await sdk.queryTradeStatus(tradeNo);
+
+        if (!queryResult.success) {
+          logger.error("❌ 查詢訂單失敗，放棄更新", {
+            tradeNo,
+            error: queryResult.error,
+          });
+          return res.send("FAIL");
+        }
+
+        // 驗證查詢結果與 Webhook 資料的金額是否一致
+        const queryData = queryResult.data;
+        const webhookAmount = parseInt(parsedData.TradeAmt);
+        const queryAmount = parseInt(queryData.amount);
+
+        if (queryAmount !== webhookAmount) {
+          logger.error("❌ webhook 回調金額不符，請注意", {
+            tradeNo,
+            webhookAmount,
+            queryAmount,
+          });
+          return res.send("FAIL");
+        }
+
+        logger.info("✓ API 查詢成功", {
+          tradeNo,
+          amount: queryAmount,
+          status: queryData.tradeStatusText,
+          isPaid: queryData.isPaid,
+        });
+      } catch (queryError) {
+        logger.error("⚠️ 查詢訂單異常，放棄更新", {
+          tradeNo,
+          error: queryError.message,
+        });
+        return res.send("FAIL");
+      }
+
+      // ✓ 使用查詢 API 的資料作為主要信息來源，無論支付狀態如何都更新
+      const queryData = queryResult.data;
       const updateData = {
         MerTradeNo: tradeNo,
-        TradeSeq: tradeSeq,
-        Status: payStatus,
-        rawData: parsedData,
+        TradeSeq: queryData.tradeNo, // 使用 API 返回的 TradeNo
+        Status: queryData.tradeStatusText, // 使用 API 返回的狀態文字（包括未支付）
+        rawData: {
+          ...parsedData,
+          ...queryData, // 合併查詢結果
+        }
       };
 
       const updateSuccess = await updateOrderInGAS(updateData);
       if (!updateSuccess) {
+        logger.error("❌ 更新訂單失敗", { tradeNo });
         return res.send("FAIL");
       }
 
-      logger.info("Webhook processed successfully", { tradeNo, status: payStatus });
-      res.send(Status === "SUCCESS" ? "OK" : "FAIL");
+      logger.info("✓ Webhook 處理成功（以 API 查詢資料為準）", { 
+        tradeNo, 
+        status: queryData.tradeStatusText,
+        amount: queryData.amount,
+        isPaid: queryData.isPaid,
+        verified: true,
+      });
+      res.send("OK");
     } catch (error) {
       logger.error("Webhook processing error", { message: error.message });
       res.send("ERROR");

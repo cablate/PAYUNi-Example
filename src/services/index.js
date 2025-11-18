@@ -1,9 +1,8 @@
 import axios from "axios";
-import querystring from "querystring";
-import { EXTERNAL_SERVICES, PAYUNI_CONFIG, TURNSTILE_CONFIG } from "../config/constants.js";
-import { decrypt, encrypt, sha256 } from "../utils/crypto.js";
+import { TURNSTILE_CONFIG } from "../config/constants.js";
 import logger from "../utils/logger.js";
-import { getOrderDatabase } from "./database/OrderDatabaseProvider.js";
+import { getOrderDatabase } from "./database/provider.js";
+import { getPayuniSDK } from "./payment/provider.js";
 
 /**
  * 驗證 Turnstile 驗證碼
@@ -56,7 +55,6 @@ export async function findExistingOrder(userEmail, productID) {
 
 /**
  * 建立支付訂單（使用 Google Sheets API）
- * 參數格式參考 GAS 的 createOrder() 函數
  */
 export async function createOrderInGAS(orderData) {
   try {
@@ -105,38 +103,12 @@ export async function updateOrderInGAS(updateData) {
  * 生成支付資料
  */
 export function generatePaymentData(tradeNo, product, userEmail, returnUrl) {
-  const merID = PAYUNI_CONFIG.MERCHANT_ID;
-  const hashKey = PAYUNI_CONFIG.HASH_KEY;
-  const hashIV = PAYUNI_CONFIG.HASH_IV;
-  const timestamp = Math.round(new Date().getTime() / 1000);
-
-  const tradeData = {
-    MerID: merID,
-    Version: "1.0",
-    MerTradeNo: tradeNo,
-    TradeAmt: product.price,
-    ProdDesc: product.name,
-    NotifyURL: EXTERNAL_SERVICES.NOTIFY_URL,
-    ReturnURL: returnUrl,
-    PayType: "C",
-    Timestamp: timestamp,
-    UsrMail: userEmail,
-    UsrMailFix: 1,
-  };
-
-  const plaintext = querystring.stringify(tradeData);
-  const merKey = hashKey;
-  const merIv = Buffer.from(hashIV, "utf8");
-  const encryptStr = encrypt(plaintext, merKey, merIv);
-
+  const sdk = getPayuniSDK();
+  const paymentInfo = sdk.generatePaymentInfo(tradeNo, product, userEmail, returnUrl);
+  
   return {
-    payUrl: PAYUNI_CONFIG.API_URL,
-    data: {
-      MerID: merID,
-      Version: "1.0",
-      EncryptInfo: encryptStr,
-      HashInfo: sha256(encryptStr, merKey, merIv),
-    },
+    payUrl: paymentInfo.payUrl,
+    data: paymentInfo.data,
   };
 }
 
@@ -144,25 +116,22 @@ export function generatePaymentData(tradeNo, product, userEmail, returnUrl) {
  * 驗證 Webhook Hash
  */
 export function verifyWebhookHash(encryptInfo, hashInfo) {
-  const hashKey = PAYUNI_CONFIG.HASH_KEY;
-  const hashIV = PAYUNI_CONFIG.HASH_IV;
-  const calculatedHash = sha256(encryptInfo, hashKey, hashIV);
-
-  if (calculatedHash !== hashInfo) {
-    logger.warn("Hash verification failed");
-    return false;
-  }
-
-  return true;
+  const sdk = getPayuniSDK();
+  return sdk.verifyWebhookData(encryptInfo, hashInfo);
 }
 
 /**
  * 解密 Webhook 資料
  */
 export function decryptWebhookData(encryptInfo) {
-  const hashKey = PAYUNI_CONFIG.HASH_KEY;
-  const hashIV = PAYUNI_CONFIG.HASH_IV;
-  const merIv = Buffer.from(hashIV, "utf8");
-  const decryptedData = decrypt(encryptInfo, hashKey, merIv);
-  return querystring.parse(decryptedData);
+  const sdk = getPayuniSDK();
+  return sdk.parseWebhookData(encryptInfo);
+}
+
+/**
+ * 驗證並解析 Webhook 資料（推薦使用）
+ */
+export function validateAndParseWebhook(encryptInfo, hashInfo) {
+  const sdk = getPayuniSDK();
+  return sdk.validateAndParseWebhook(encryptInfo, hashInfo);
 }

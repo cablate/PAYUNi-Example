@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getOrderDatabase } from "../services/database/OrderDatabaseProvider.js";
+import { getOrderDatabase } from "../services/database/provider.js";
 import logger from "../utils/logger.js";
 
 /**

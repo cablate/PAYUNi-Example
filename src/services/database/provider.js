@@ -3,7 +3,7 @@
  * 提供統一的資料庫實例，支援未來切換不同的資料庫實現
  */
 
-import { GoogleSheetsOrderDatabase } from "./GoogleSheetsOrderDatabase.js";
+import { GoogleSheetsOrderDatabase } from "./GoogleSheets.js";
 
 /**
  * 初始化並導出資料庫實例
