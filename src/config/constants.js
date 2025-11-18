@@ -2,6 +2,11 @@
 // 應用常數配置
 // ========================================
 
+import dotenv from "dotenv";
+
+// 確保環境變數被載入
+dotenv.config();
+
 /**
  * 伺服器配置
  */
@@ -41,11 +46,17 @@ export const GOOGLE_CONFIG = {
 };
 
 /**
+ * Google Sheets API 配置
+ */
+export const GOOGLE_SHEETS_CONFIG = {
+  SHEETS_ID: process.env.GOOGLE_SHEETS_ID,
+  KEY_FILE: process.env.GOOGLE_SHEETS_KEY_FILE || "./google-key.json",
+};
+
+/**
  * 外部服務配置
  */
 export const EXTERNAL_SERVICES = {
-  GAS_WEBHOOK_URL: process.env.GAS_WEBHOOK_URL,
-  WEBHOOK_TOKEN: process.env.WEBHOOK_TOKEN,
   NOTIFY_URL: process.env.NOTIFY_URL,
 };
 
@@ -106,10 +117,10 @@ export const REQUIRED_ENV_VARS = [
   "PAYUNI_HASH_IV",
   "TURNSTILE_SECRET_KEY",
   "NOTIFY_URL",
-  "GAS_WEBHOOK_URL",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "GOOGLE_REDIRECT_URI",
+  "GOOGLE_SHEETS_ID",
   "SESSION_SECRET",
 ];
 

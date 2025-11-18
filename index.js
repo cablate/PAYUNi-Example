@@ -1,4 +1,3 @@
-import dotenv from "dotenv";
 import express from "express";
 import session from "express-session";
 import { OAuth2Client } from "google-auth-library";
@@ -23,8 +22,6 @@ import {
 import { createAuthRoutes } from "./src/routes/auth.js";
 import { createOrderRoutes } from "./src/routes/orders.js";
 import { createPaymentRoutes } from "./src/routes/payment.js";
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

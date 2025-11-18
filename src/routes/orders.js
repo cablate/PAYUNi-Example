@@ -1,6 +1,5 @@
-import axios from "axios";
 import { Router } from "express";
-import { EXTERNAL_SERVICES } from "../config/constants.js";
+import { getOrderDatabase } from "../services/database/OrderDatabaseProvider.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -38,22 +37,9 @@ export function createOrderRoutes(oneTimeTokens) {
 
     try {
       const userEmail = req.session.user.email;
-
-      const gasResponse = await axios.post(
-        `${EXTERNAL_SERVICES.GAS_WEBHOOK_URL}?action=getMyOrders`,
-        { email: userEmail },
-        {
-          headers: {
-            Cookie: `token=${EXTERNAL_SERVICES.WEBHOOK_TOKEN}`,
-          },
-        }
-      );
-
-      if (gasResponse.data && gasResponse.data.orders) {
-        res.json({ success: true, orders: gasResponse.data.orders });
-      } else {
-        throw new Error(gasResponse.data.message || "無法從 GAS 獲取訂單");
-      }
+      const db = getOrderDatabase();
+      const orders = await db.getUserOrders(userEmail);
+      res.json({ success: true, orders });
     } catch (error) {
       sendSecureError(res, 500, "查詢訂單失敗", { message: error.message });
     }

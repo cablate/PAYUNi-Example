@@ -3,6 +3,7 @@ import querystring from "querystring";
 import { EXTERNAL_SERVICES, PAYUNI_CONFIG, TURNSTILE_CONFIG } from "../config/constants.js";
 import { decrypt, encrypt, sha256 } from "../utils/crypto.js";
 import logger from "../utils/logger.js";
+import { getOrderDatabase } from "./database/OrderDatabaseProvider.js";
 
 /**
  * 驗證 Turnstile 驗證碼
@@ -39,26 +40,13 @@ export async function verifyTurnstile(token) {
  * 查詢現有未完成訂單
  */
 export async function findExistingOrder(userEmail, productID) {
-  if (!EXTERNAL_SERVICES.GAS_WEBHOOK_URL) {
-    return null;
-  }
-
   try {
-    const response = await axios.post(
-      `${EXTERNAL_SERVICES.GAS_WEBHOOK_URL}?action=findOrder`,
-      { email: userEmail, productID },
-      {
-        headers: {
-          Cookie: `token=${EXTERNAL_SERVICES.WEBHOOK_TOKEN}`,
-        },
-      }
-    );
-
-    if (response.data?.success && response.data?.order) {
-      logger.info("Found existing pending order, reusing it.", { tradeNo: response.data.order.tradeNo });
-      return response.data.order;
+    const db = getOrderDatabase();
+    const order = await db.findPendingOrder(userEmail, productID);
+    if (order) {
+      logger.info("Found existing pending order, reusing it.", { tradeNo: order.tradeNo });
+      return order;
     }
-
     return null;
   } catch (error) {
     logger.warn("Failed to check for existing order", { error: error.message });
@@ -67,27 +55,28 @@ export async function findExistingOrder(userEmail, productID) {
 }
 
 /**
- * 建立支付訂單（調用 GAS）
+ * 建立支付訂單（使用 Google Sheets API）
+ * 參數格式參考 GAS 的 createOrder() 函數
  */
 export async function createOrderInGAS(orderData) {
-  if (!EXTERNAL_SERVICES.GAS_WEBHOOK_URL) {
-    return true;
-  }
-
   try {
-    const response = await axios.post(`${EXTERNAL_SERVICES.GAS_WEBHOOK_URL}?action=createOrder`, orderData, {
-      headers: {
-        Cookie: `token=${EXTERNAL_SERVICES.WEBHOOK_TOKEN}`,
-      },
-    });
+    // 確保傳遞的參數符合 Sheets API 的格式
+    const formattedData = {
+      tradeNo: orderData.tradeNo,
+      merID: orderData.merID || orderData.MerID,
+      tradeAmt: orderData.tradeAmt || orderData.TradeAmt,
+      email: orderData.email,
+      productID: orderData.productID,
+      productName: orderData.productName,
+    };
 
-    if (!response.data?.success) {
-      logger.warn("GAS failed to create order", { tradeNo: orderData.tradeNo, response: response.data });
-      return false;
+    const db = getOrderDatabase();
+    const success = await db.createOrder(formattedData);
+    if (success) {
+      logger.info("Order record created in Google Sheets", { tradeNo: formattedData.tradeNo, email: formattedData.email });
+      return true;
     }
-
-    logger.info("Order record created in Google Sheets", { tradeNo: orderData.tradeNo });
-    return true;
+    return false;
   } catch (error) {
     logger.warn("Failed to create order in Google Sheets", { tradeNo: orderData.tradeNo, error: error.message });
     return false;
@@ -95,27 +84,17 @@ export async function createOrderInGAS(orderData) {
 }
 
 /**
- * 更新訂單狀態（調用 GAS）
+ * 更新訂單狀態（使用 Google Sheets API）
  */
 export async function updateOrderInGAS(updateData) {
-  if (!EXTERNAL_SERVICES.GAS_WEBHOOK_URL) {
-    return true;
-  }
-
   try {
-    const response = await axios.post(`${EXTERNAL_SERVICES.GAS_WEBHOOK_URL}?action=updateOrder`, updateData, {
-      headers: {
-        Cookie: `token=${EXTERNAL_SERVICES.WEBHOOK_TOKEN}`,
-      },
-    });
-
-    if (!response.data?.success) {
-      logger.warn("GAS failed to update order", { tradeNo: updateData.MerTradeNo });
-      return false;
+    const db = getOrderDatabase();
+    const success = await db.updateOrder(updateData);
+    if (success) {
+      logger.info("Order updated in Google Sheets", { tradeNo: updateData.MerTradeNo, status: updateData.Status });
+      return true;
     }
-
-    logger.info("Order updated in Google Sheets", { tradeNo: updateData.MerTradeNo, status: updateData.Status });
-    return true;
+    return false;
   } catch (error) {
     logger.warn("Failed to update order in Google Sheets", { tradeNo: updateData.MerTradeNo, error: error.message });
     return false;
