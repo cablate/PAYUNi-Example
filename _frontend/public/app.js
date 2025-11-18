@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
         button.title = "";
       });
       // 已登入，顯示 Turnstile
-      if (captchaWrapper) captchaWrapper.style.display = "block";
+      if (captchaWrapper) captchaWrapper.style.display = "flex";
     } else {
       // User is not logged in
       loginBtn.classList.remove("hidden"); // 顯示登入按鈕

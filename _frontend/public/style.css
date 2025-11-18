@@ -59,7 +59,14 @@ h1 {
 .captcha-wrapper {
   display: flex;
   justify-content: center;
+  align-items: center;
   margin-top: 30px;
+  width: 100%;
+}
+
+/* Cloudflare Turnstile 置中 */
+.cf-turnstile {
+  margin: 0 auto;
 }
 
 /* ========================================

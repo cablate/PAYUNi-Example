@@ -255,20 +255,25 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
    ↓
 4. 路線 B：後端接收 Webhook
    ↓
-5. 後端解密並驗證 Webhook 內容
+5. 後端解密並驗證 Webhook 內容 Hash
    ↓
-6. 確認訂單支付成功
+6. 🆕 主動向 Payuni API 查詢訂單（二次確認）
+   ├─ 驗證金額是否相符
+   ├─ 檢查訂單狀態
+   └─ 取得完整訂單資訊
    ↓
-7. 整理訂單資料
+7. 使用 API 查詢結果作為主要資訊源
    ↓
-8. POST 請求至 GAS_WEBHOOK_URL
+8. 整理訂單資料
    ↓
-9. Google Apps Script 執行 doPost
+9. POST 請求至資料庫更新
    ↓
-10. Google Sheet 新增訂單紀錄
+10. 訂單紀錄完成
 ```
 
-#### 8 個執行步驟
+#### 12 個執行步驟（含二次確認）
+
+##### 前置與初始驗證（1-5）
 
 1. **使用者支付**：使用者在 Payuni 頁面輸入信用卡資訊並完成支付。
 
@@ -276,45 +281,86 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
    - **路徑 A (前端)**：Payuni 將使用者的瀏覽器導回到您指定的 `PAYUNI_RETURN_URL` (`result.html`)。**這僅用於提供即時的使用者體驗，不應作為訂單成功的依據。**
    - **路徑 B (後端 - 真實的交易通知)**：在背景，Payuni 的伺服器會向您在 `.env` 中設定的 `NOTIFY_URL` (`/payuni-webhook`) 發送一個 `POST` 請求。這就是「Webhook」，是唯一可信的交易結果通知。
 
-3. **後端接收 Webhook**：您的 Express 伺服器接收到這個 Webhook 請求。
+3. **後端接收 Webhook**：您的 Express 伺服器接收到這個 Webhook 請求，內含加密的 `EncryptInfo` 和簽名 `HashInfo`。
 
-4. **解密與驗證**：伺服器使用 `utils/crypto.js` 中的 AES-256-GCM 解密函式，對 Webhook 內容進行解密與驗證。這一步確保了通知確實來自 Payuni 且內容未被篡改。
+4. **驗證 Hash 簽名**：使用 SHA-256 演算法驗證 Webhook 的完整性，確保內容未被竄改。驗證失敗直接返回 "FAIL"。
 
-5. **確認訂單成功**：驗證成功後，後端即可 100% 確認這筆訂單已支付成功。
+5. **解密 Webhook 資料**：使用 `PayuniSDK.js` 中的 AES-256-GCM 解密函式，將加密的 `EncryptInfo` 解密，提取訂單編號（MerTradeNo）和初步的支付資訊。
 
-6. **觸發 GAS**：後端將訂單號、金額、商品名稱、使用者等關鍵資訊，整理成一個乾淨的 JSON 物件。
+##### 二次確認 - API 主動查詢（6-9）🆕
 
-7. **寫入 Google Sheet**：後端向您在 `.env` 中設定的 `GAS_WEBHOOK_URL` 發起一個 `POST` 請求，將上述 JSON 物件傳送過去。
+6. **主動查詢 Payuni Query API**：
+   - 為了防止 Webhook 被駭客中間人攻擊或偽造，後端主動向 Payuni 查詢 API 發起查詢請求
+   - 傳入訂單編號（MerTradeNo）和時間戳，使用相同的加密機制
+   - 這是「第二個獨立的數據來源」，與 Webhook 無關
 
-8. **GAS 執行**：部署在雲端的 Google Apps Script 被觸發，執行 `doPost` 函式，將接收到的 JSON 資料新增一行到您指定的 Google Sheet 中，完成訂單的最終紀錄。
+7. **驗證 API 回應簽名**：查詢結果同樣包含 Hash，需驗證其真實性。
+
+8. **金額欺詐檢查**：比較 Webhook 中的金額 vs 官方 API 查詢結果的金額。
+   - 如果不符 → 記錄詐欺警告，返回 "FAIL"
+   - 如果相符 → 繼續處理
+
+9. **確定資料來源**：
+   - **使用 API 查詢結果作為主要資訊來源**（而非 Webhook）
+   - API 代表 Payuni 官方狀態，不會被前端或 Webhook 層級的攻擊影響
+   - 標記此訂單為 `queryVerified: true`，追蹤驗證狀態
+
+##### 資料庫寫入（10-12）
+
+10. **整理訂單資料**：將驗證後的 API 查詢結果、使用者資訊、商品資訊整合為統一格式，準備寫入資料庫。
+
+11. **寫入資料庫**：透過資料庫抽象層（Google Sheets API 或其他），將訂單記錄寫入持久化儲存。
+    - 記錄欄位包含：訂單編號、交易序號、支付狀態、金額、驗證標記、時戳
+
+12. **完成確認**：
+    - 返回 "OK" 告知 Payuni 此 Webhook 已成功處理
+    - Payuni 停止重試此筆通知
+    - 後端可進行後續動作：發送確認郵件、更新庫存、通知系統管理員等
 
 #### 自我檢核：Webhook 流程
 
 **🔰 基礎理解**（看懂流程）
 - 為什麼需要兩條通知路線（Return URL 和 Notify URL）？
+- 為什麼即使 Webhook 解密成功，我們還要再查一次 API？
 
 **🌟 進階思考**（理解原理）
 - 如果 Payuni Webhook 遲遲未到，你還能從哪裡追蹤交易狀態？
-- 當 `utils/crypto.js` 的解密失敗時，會拋出哪些錯誤訊息或日誌線索？
+- 金額不符（Webhook ≠ API）表示什麼？應該如何處理？
+- 為什麼使用 API 查詢結果作為主要資訊，而不是 Webhook？
 
 **🌟🌟 應用能力**（遷移到新場景）
-- 如果要改用資料庫而非 Google Sheet，這條流程需要替換哪幾個節點？
-- 除了 Webhook，還有其他「最終確認」機制嗎？在什麼場景會用？
+- 如果要改用資料庫而非 Google Sheet，哪些節點需要替換？
+- 除了金額檢查，可能還有什麼欄位被二次確認？
+- 如果訂單狀態是「未付款」但已通過驗證寫入資料庫，代表什麼？該如何追蹤？
+
+**🔒 安全思維**（防止攻擊）
+- 如果駭客偽造 Webhook，系統怎麼防？（Hash 驗證 + API 查詢）
+- 如果 API 查詢也被中間人攻擊，怎麼辦？（密鑰管理、HTTPS）
+- 重複提交同一筆訂單會怎樣？系統怎麼預防？（記錄 queryVerified 標記）
 
 #### 💡 現實應用故事
 
 **場景 1：電商平台（如蝦皮、Momo）**
 當你在蝦皮買東西，跳轉到信用卡支付後：
-- **Return URL**：支付完成立即看到「已收款」訊息
-- **Webhook**：背景同時將訂單寫入訂單系統、觸發倉庫揀貨、發送出貨通知
+- **Return URL**：支付完成立即看到「已收款」訊息（使用者體驗）
+- **Webhook**：背景同時向官方查詢 API 確認訂單真實狀態
+- **二次確認機制**：防止黑客竄改 Webhook 資訊來偽造訂單
+- **金額檢查**：確保消費者只被扣款一次，不被重複刷卡
+- **資料寫入**：訂單寫入訂單系統、觸發倉庫揀貨、發送出貨通知
 
-**場景 2：雲端服務（如 AWS、Google Cloud）**
-當你升級方案或新增資源時：
+**場景 2：SaaS 服務升級（如 AWS、GitHub Copilot）**
+當你升級訂閱方案時：
 - **Return URL**：立即看到「升級成功」的頁面
-- **Webhook**：背景同時更新你的帳戶配額、產生新發票、發送確認郵件
+- **Webhook**：背景同時查詢官方系統確認新配額
+- **二次確認**：防止某人透過偽造 Webhook 升級到高級方案卻只付基礎金額
+- **資料同步**：更新帳戶配額、產生新發票、發送確認郵件
 
-**場景 3：物流系統**
-當快遞員掃描包裹時：
+**場景 3：金融交易（銀行轉帳、股票交易）**
+當你進行股票買賣時：
+- **即時反饋**：交易頁面顯示「已送出」
+- **Webhook + API 查詢**：銀行系統既接收交易通知，也主動查詢清算系統
+- **多層驗證**：防止金額竄改導致重大財務損失
+- **審計追蹤**：所有驗證步驟都記錄在案，便於後續查核
 - **Return URL**：立即回傳「收到包裹」訊息給掃描設備
 - **Webhook**：背景同時更新物流系統、發送顧客通知、觸發倉庫入庫流程
 
@@ -360,6 +406,64 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
 
 讀完這份系統架構，你不只學會了「金流怎麼串」，更重要的是學會了以下可以應用在任何專案的設計原則：
 
+### 0. PayuniSDK：加密與驗證的統一接口 🆕
+
+**背景**：系統中有許多涉及 Payuni 的操作—生成加密支付資訊、驗證 Webhook、查詢訂單狀態。如果每次都直接呼叫底層的加密/解密函式，程式碼會散亂且容易出錯。
+
+**解決方案**：建立 `PayuniSDK` 類別，統一封裝所有與 Payuni 互動的邏輯。
+
+**SDK 包含的核心方法：**
+
+| 方法 | 用途 | 調用時機 |
+|------|------|--------|
+| `generatePaymentInfo(...)` | 生成加密的支付資訊 | 使用者建立訂單時 |
+| `verifyWebhookData(encryptInfo, hashInfo)` | 驗證 Webhook 簽名 | Payuni 伺服器發送通知時 |
+| `parseWebhookData(encryptInfo)` | 解密 Webhook 資料 | 確認簽名有效後 |
+| `queryTradeStatus(merTradeNo)` | 🆕 主動查詢訂單狀態 | Webhook 接收後（二次確認） |
+| `validateAndParseWebhook(...)` | 綜合驗證和解密 | 簡化常見的驗證流程 |
+
+**使用 SDK 的好處：**
+- ✅ **單一責任**：加密邏輯集中管理，減少出錯機會
+- ✅ **易於測試**：所有加密操作都在一個地方，便於單元測試
+- ✅ **程式碼清晰**：調用端不需要理解加密細節，只需呼叫高層方法
+- ✅ **安全可控**：金鑰、IV、雜湊密鑰等敏感資訊都在 SDK 內部管理
+- ✅ **便於擴展**：新增支付功能時，只需在 SDK 中添加新方法
+
+**實際例子**：
+
+```javascript
+// 建立訂單時—生成支付連結
+const sdk = getPayuniSDK();
+const paymentInfo = sdk.generatePaymentInfo(
+  tradeNo, 
+  product, 
+  email, 
+  returnUrl
+);
+// 返回：{ payUrl, data: { MerID, Version, EncryptInfo, HashInfo } }
+
+// Webhook 接收時—二步驗證
+const webhookVerified = sdk.verifyWebhookData(encryptInfo, hashInfo);
+if (!webhookVerified) return res.send("FAIL");
+
+const decrypted = sdk.parseWebhookData(encryptInfo);
+const tradeNo = decrypted.MerTradeNo;
+
+// 🆕 主動查詢確認
+const queryResult = await sdk.queryTradeStatus(tradeNo);
+if (!queryResult.success) return res.send("FAIL");
+
+// 金額檢查（詐欺防護）
+if (queryResult.data.amount !== decrypted.TradeAmt) {
+  logger.error("❌ 金額不符，可能詐欺");
+  return res.send("FAIL");
+}
+```
+
+**進階理解**：這是「策略模式」的應用—將複雜的 Payuni 交互策略封裝為一個高內聚的物件，使用端不需要知道內部細節。
+
+---
+
 ### 1. 多層驗證的思維
 
 **在金流案例中的體現：**
@@ -367,6 +471,8 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
 - Session Cookie 維持登入狀態
 - CSRF Token 防止跨站攻擊
 - Webhook 簽名驗證支付結果
+- 🆕 API 查詢二次確認訂單狀態
+- 🆕 金額檢查防止詐欺
 
 **可應用的場景：**
 - 會員系統：登入 + 二次驗證 + 操作確認
@@ -382,6 +488,7 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
 - 後端：處理業務邏輯、驗證和資料處理
 - Payuni：專注處理支付流程
 - Google Sheets/GAS：單純儲存訂單資料
+- 🆕 PayuniSDK：統一封裝加密、解密、驗證邏輯
 
 **可應用的場景：**
 - 社群登入整合（OAuth 提供者 + 你的系統 + 資料庫）
@@ -395,6 +502,7 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
 **在金流案例中的體現：**
 - **Return URL**：使用者支付完成後的「即時回饋」（前端體驗）
 - **Notify URL (Webhook)**：Payuni 伺服器的「非同步通知」（真實交易結果）
+- 🆕 **Query API**：後端主動查詢官方狀態（二次確認機制）
 
 **可應用的場景：**
 - 發送郵件（觸發後背景處理，不阻塞使用者）
@@ -402,7 +510,7 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
 - 批次處理（大量資料處理，進度通知）
 - 第三方服務整合（等待外部回應）
 
-**核心啟示：** 區分「使用者需要立即看到的回饋」和「真正完成的確認」，設計更可靠的系統。
+**核心啟示：** 區分「使用者需要立即看到的回饋」和「真正完成的確認」，設計更可靠的系統。不要只相信單一通道，要透過多個獨立來源進行確認。
 
 ### 4. 安全優先的設計原則
 
@@ -411,13 +519,16 @@ GitHub 登入的流程與 Google OAuth 完全相同。當開發者登入 Vercel�
 - 所有 API 金鑰都存在 `.env` 而非程式碼中
 - 永遠不經手信用卡資訊（委託給 Payuni）
 - 使用 `httpOnly` Cookie 防止 XSS 竊取 Session
+- 🆕 Webhook 簽名驗證防止偽造
+- 🆕 API 查詢二次確認防止中間人攻擊
+- 🆕 金額檢查防止重複扣款或詐欺
 
 **可應用的場景：**
 - 健康醫療資料（加密儲存、傳輸、存取控制）
 - 財務資訊（最小權限、審計日誌、多重驗證）
 - 個人隱私（資料去識別化、同意管理）
 
-**核心啟示：** 「安全」不是功能做完後才加上去的，而是從設計之初就要內建的。
+**核心啟示：** 「安全」不是功能做完後才加上去的，而是從設計之初就要內建的。防守深度（Defense in Depth）的概念很重要—每一層都有防線，即使一層被突破，還有其他層保護。
 
 ---
 
