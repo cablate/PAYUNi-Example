@@ -44,6 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const updateUserUI = (user) => {
     currentUser = user;
     const payButtons = document.querySelectorAll(".pay-button");
+    const captchaWrapper = document.querySelector(".captcha-wrapper");
 
     // 預設隱藏所有認證相關的元素
     loginBtn.classList.add("hidden");
@@ -59,18 +60,22 @@ document.addEventListener("DOMContentLoaded", () => {
         button.disabled = false;
         button.title = "";
       });
+      // 已登入，顯示 Turnstile
+      if (captchaWrapper) captchaWrapper.style.display = "block";
     } else {
       // User is not logged in
       loginBtn.classList.remove("hidden"); // 顯示登入按鈕
-      loginBtn.classList.add("loading"); // 預設為載入中
-      loginBtn.disabled = true; // 預設為禁用
-      loginBtn.title = "請先完成人機驗證"; // 提示訊息
+      loginBtn.classList.remove("loading"); // 移除載入狀態
+      loginBtn.disabled = false; // 啟用按鈕
+      loginBtn.title = ""; // 移除提示訊息
 
       // Disable all pay buttons and add a tooltip
       payButtons.forEach(button => {
         button.disabled = true;
         button.title = "請先登入以進行購買";
       });
+      // 未登入，隱藏 Turnstile
+      if (captchaWrapper) captchaWrapper.style.display = "none";
     }
   };
 
@@ -156,8 +161,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const productID = button.dataset.productId;
 
     // Double check if user is logged in before proceeding
+    // 如果未登入，直接導向 Google 登入，無需顯示錯誤或 Turnstile
     if (!currentUser) {
-      showError("請先登入後再進行購買。");
+      button.disabled = true;
+      button.classList.add("loading");
+      window.location.href = "/auth/google";
       return;
     }
 

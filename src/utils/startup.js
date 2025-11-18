@@ -1,10 +1,10 @@
-const chalk = require("chalk");
-const figlet = require("figlet");
+import chalk from "chalk";
+import figlet from "figlet";
 
 /**
  * 列印美化的啟動訊息
  */
-function printStartupBanner() {
+export function printStartupBanner() {
   // 用分隔線而不是清除螢幕
   console.log("\n" + "=".repeat(60));
 
@@ -21,7 +21,7 @@ function printStartupBanner() {
 /**
  * 列印環境變數配置
  */
-function printEnvironmentConfig(config) {
+export function printEnvironmentConfig(config) {
   console.log(chalk.yellow.bold("📋 環境變數配置：\n"));
 
   const configItems = [
@@ -44,7 +44,7 @@ function printEnvironmentConfig(config) {
 /**
  * 列印成功訊息
  */
-function printSuccess(port) {
+export function printSuccess(port) {
   console.log(chalk.green.bold("\n✅ 伺服器啟動成功！\n"));
   console.log(chalk.bgGreen.black.bold(`  🚀 http://localhost:${port}  \n`));
   console.log(chalk.gray("等待連線...") + "\n");
@@ -53,7 +53,7 @@ function printSuccess(port) {
 /**
  * 列印警告訊息
  */
-function printWarning(message) {
+export function printWarning(message) {
   console.log(chalk.yellow.bold("\n⚠️  警告：\n"));
   console.log(chalk.yellow(`  ${message}\n`));
 }
@@ -61,15 +61,7 @@ function printWarning(message) {
 /**
  * 列印錯誤訊息
  */
-function printError(message) {
+export function printError(message) {
   console.error(chalk.red.bold("\n❌ 錯誤：\n"));
   console.error(chalk.red(`  ${message}\n`));
 }
-
-module.exports = {
-  printStartupBanner,
-  printEnvironmentConfig,
-  printSuccess,
-  printWarning,
-  printError,
-};

@@ -1,4 +1,4 @@
-const winston = require("winston");
+import winston from "winston";
 
 // 敏感欄位清單
 const sensitiveFields = ["CardNo", "CardCVC", "PAYUNI_HASH_KEY", "PAYUNI_HASH_IV", "password", "token", "secret", "key", "encryptInfo", "hashinfo", "EncryptInfo", "HashInfo"];
@@ -56,4 +56,4 @@ const logger = winston.createLogger({
   ],
 });
 
-module.exports = logger;
+export default logger;
