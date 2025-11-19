@@ -103,6 +103,77 @@ export class PayuniSDK {
   }
 
   /**
+   * 生成續期收款支付資訊
+   * @param {string} tradeNo - 訂單編號
+   * @param {Object} product - 商品資訊 { price, name, periodConfig }
+   * @param {string} userEmail - 用戶 Email
+   * @param {string} returnUrl - 返回 URL
+   * @returns {Object} { payUrl, data: { MerID, Version, EncryptInfo, HashInfo } }
+   */
+  generatePeriodPaymentInfo(tradeNo, product, userEmail, returnUrl) {
+    try {
+      const { periodConfig } = product;
+      
+      if (!periodConfig) {
+        throw new Error("商品缺少 periodConfig 配置");
+      }
+
+      // 構建續期收款資料
+      const periodData = {
+        MerID: this.merchantId,
+        MerTradeNo: tradeNo,
+        PeriodAmt: product.price,
+        ProdDesc: product.name,
+        PayerEmail: userEmail,
+        PayerFix: "3", // 固定 Email
+        PeriodType: periodConfig.periodType,
+        PeriodDate: periodConfig.periodDate,
+        PeriodTimes: periodConfig.periodTimes,
+        FType: periodConfig.fType || "build",
+        NotifyURL: this.notifyUrl,
+        ReturnURL: returnUrl,
+      };
+
+      // 若有設定首期金額，加入參數
+      if (periodConfig.fAmt) {
+        periodData.FAmt = periodConfig.fAmt;
+      }
+
+      // 轉換為查詢字串
+      const plaintext = querystring.stringify(periodData);
+
+      //加密
+      const encryptInfo = this._encrypt(plaintext);
+
+      // 生成 Hash
+      const hashInfo = this._hash(encryptInfo);
+
+      logger.info("續期收款資訊已生成", {
+        tradeNo,
+        periodType: periodConfig.periodType,
+        periodTimes: periodConfig.periodTimes,
+        merchantId: this.merchantId,
+      });
+
+      return {
+        payUrl: `${this.apiUrl}/api/period/Page`,
+        data: {
+          MerID: this.merchantId,
+          Version: "1.0",
+          EncryptInfo: encryptInfo,
+          HashInfo: hashInfo,
+        },
+      };
+    } catch (error) {
+      logger.error("生成續期收款資訊失敗", {
+        tradeNo,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * 驗證 Webhook 資料完整性
    * @param {string} encryptInfo - 加密資料
    * @param {string} hashInfo - 雜湊值
@@ -148,6 +219,7 @@ export class PayuniSDK {
       const webhookData = querystring.parse(decryptedStr);
 
       logger.info("Webhook 資料已解析", {
+        ...webhookData,
         tradeNo: webhookData.MerTradeNo,
         status: webhookData.Status,
       });

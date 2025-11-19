@@ -4,15 +4,16 @@ import { validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants.js";
 import {
-  createOrderInGAS,
-  decryptWebhookData,
-  findExistingOrder,
-  generatePaymentData,
-  updateOrderInGAS,
-  verifyTurnstile,
-  verifyWebhookHash,
+    createOrderInGAS,
+    decryptWebhookData,
+    findExistingOrder,
+    generatePaymentData,
+    updateOrderInGAS,
+    verifyTurnstile,
+    verifyWebhookHash,
 } from "../services/index.js";
 import { getPayuniSDK } from "../services/payment/provider.js";
+import { generatePeriodPaymentData } from "../services/PeriodPaymentService.js";
 import logger from "../utils/logger.js";
 import { createPaymentValidation } from "../utils/validators.js";
 
@@ -121,6 +122,82 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       return res.json(paymentData);
     } catch (error) {
       return sendSecureError(res, 500, "支付建立失敗", { tradeNo, message: error.message });
+    }
+  });
+
+  /**
+   * 建立訂閱支付訂單（續期收款）
+   */
+  router.post("/create-subscription", paymentLimiter, createPaymentValidation, async (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ error: "請先登入後再操作" });
+    }
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: "輸入資料不正確",
+        details: errors.array().map((e) => e.msg),
+      });
+    }
+
+    const userEmail = req.session.user.email;
+    const { turnstileToken, productID } = req.body;
+
+    const product = products.find((p) => p.id === productID);
+    if (!product) {
+      return res.status(404).json({ error: "找不到該商品" });
+    }
+
+    if (product.type !== "subscription" || !product.periodConfig) {
+      return res.status(400).json({ error: "該商品不是訂閱方案" });
+    }
+
+    try {
+      const isValid = await verifyTurnstile(turnstileToken);
+      if (!isValid) {
+        return res.status(400).json({ error: "Turnstile verification failed" });
+      }
+    } catch (error) {
+      return sendSecureError(res, 500, "Turnstile 驗證錯誤", { message: error.message });
+    }
+
+    const tradeNo = uuidv4().replace(/-/g, "").substring(0, 20);
+
+    const gasOrderData = {
+      tradeNo,
+      merID: PAYUNI_CONFIG.MERCHANT_ID,
+      tradeAmt: product.price,
+      email: userEmail,
+      productID: product.id,
+      productName: product.name,
+      productType: "subscription",
+      ...(req.session.user && {
+        userGoogleId: req.session.user.id,
+        userEmail: req.session.user.email,
+        userName: req.session.user.name,
+      }),
+    };
+
+    const gasSuccess = await createOrderInGAS(gasOrderData);
+    if (!gasSuccess) {
+      return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
+    }
+
+    try {
+      const returnUrl = PAYUNI_CONFIG.RETURN_URL;
+      const periodPaymentData = generatePeriodPaymentData(tradeNo, product, userEmail, returnUrl);
+      
+      logger.info("Subscription payment created successfully", { 
+        tradeNo, 
+        amount: product.price,
+        periodType: product.periodConfig.periodType,
+        periodTimes: product.periodConfig.periodTimes
+      });
+      
+      return res.json(periodPaymentData);
+    } catch (error) {
+      return sendSecureError(res, 500, "訂閱支付建立失敗", { tradeNo, message: error.message });
     }
   });
 
@@ -250,7 +327,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       const decryptedData = decryptWebhookData(EncryptInfo);
 
       const resultData = {
-        status: Status === "SUCCESS" ? "success" : "fail",
+        status: decryptedData.Status === "SUCCESS" ? "success" : "fail",
         tradeNo: decryptedData.MerTradeNo,
         tradeSeq: decryptedData.TradeNo,
         tradeAmt: decryptedData.TradeAmt,

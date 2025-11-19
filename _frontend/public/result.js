@@ -2,19 +2,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
 
-    const iconContainer = document.getElementById("icon-container");
+    const iconContainer = document.getElementById("result-icon-container");
     const titleEl = document.getElementById("status-title");
     const messageEl = document.getElementById("status-message");
     const detailsContainer = document.getElementById("details-container");
+    const actionsContainer = document.getElementById("result-actions");
+    const errorFallback = document.getElementById("error-fallback");
+    const errorMessage = document.getElementById("error-message");
 
-    const successIcon = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
-    const failIcon = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>`;
+    const successIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>`;
+    const failIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>`;
 
     function displayError(title, message) {
         document.body.classList.add("fail");
         iconContainer.innerHTML = failIcon;
         titleEl.textContent = title;
         messageEl.textContent = message;
+        actionsContainer.classList.remove("hidden");
+        errorFallback.classList.remove("hidden");
+        errorMessage.textContent = message;
     }
 
     if (!token) {
@@ -32,19 +38,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         const data = await response.json();
+        console.log("Order result data:", data);
 
         if (data.status === "success") {
             document.body.classList.add("success");
             iconContainer.innerHTML = successIcon;
             titleEl.textContent = "支付成功";
-            messageEl.textContent = "感謝您的付款，以下是您的訂單詳細資料。";
+            messageEl.textContent = "感謝您的付款！您的訂單已成功完成，以下是詳細資訊。";
             
-            document.getElementById("trade-no").textContent = data.tradeNo;
-            document.getElementById("trade-seq").textContent = data.tradeSeq;
-            document.getElementById("trade-amt").textContent = `${data.tradeAmt} TWD`;
-            document.getElementById("pay-time").textContent = new Date(data.payTime).toLocaleString();
+            document.getElementById("trade-no").textContent = data.tradeNo || "-";
+            document.getElementById("trade-seq").textContent = data.tradeSeq || data.TradeNo || "-";
+            document.getElementById("trade-amt").textContent = data.tradeAmt ? `NT$ ${data.tradeAmt}` : "-";
+            document.getElementById("pay-time").textContent = data.payTime ? new Date(data.payTime).toLocaleString('zh-TW') : new Date().toLocaleString('zh-TW');
 
             detailsContainer.classList.remove("hidden");
+            actionsContainer.classList.remove("hidden");
+            
+            // Show success badge
+            const successBadge = document.getElementById("success-badge");
+            if (successBadge) {
+                successBadge.classList.remove("hidden");
+            }
         } else {
             displayError("支付失敗", data.message || "發生未知錯誤，請聯繫客服。");
         }

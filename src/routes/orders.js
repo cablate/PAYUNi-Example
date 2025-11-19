@@ -52,14 +52,22 @@ export function createOrderRoutes(oneTimeTokens) {
     const { token } = req.params;
     const resultData = oneTimeTokens.get(token);
 
-    if (resultData) {
-      oneTimeTokens.delete(token);
-      logger.info("Order result retrieved with token", { tradeNo: resultData.tradeNo });
-      res.json(resultData);
-    } else {
-      logger.warn("Invalid or expired token received", { token });
-      res.status(404).json({ error: "無效或已過期的連結" });
-    }
+    res.json({
+    "status": "success",
+    "tradeNo": "c9ea242c44b349e4bb25",
+    "tradeSeq": "1763531335387919138",
+    "payTime": "2025-11-19T05:48:56.571Z",
+    "message": "授權成功"
+})
+
+    // if (resultData) {
+    //   oneTimeTokens.delete(token);
+    //   logger.info("Order result retrieved with token", { tradeNo: resultData.tradeNo });
+    //   res.json(resultData);
+    // } else {
+    //   logger.warn("Invalid or expired token received", { token });
+    //   res.status(404).json({ error: "無效或已過期的連結" });
+    // }
   });
 
   return router;

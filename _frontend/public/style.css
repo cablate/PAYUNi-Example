@@ -719,3 +719,256 @@ body {
   display: flex;
   justify-content: center;
 }
+
+/* ========================================
+   Result Page Styles (Matching Checkout Design)
+   ======================================== */
+
+/* Result-specific icon container in left column */
+#result-icon-container {
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+#result-icon-container svg {
+  width: 80px;
+  height: 80px;
+  animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Success state */
+body.success #result-icon-container svg {
+  color: var(--brand-accent);
+}
+
+body.success .summary-title {
+  color: var(--brand-accent);
+}
+
+/* Fail state */
+body.fail #result-icon-container svg {
+  color: #EF4444;
+}
+
+body.fail .summary-title {
+  color: #EF4444;
+}
+
+/* Result actions */
+#result-actions {
+  margin-top: 32px;
+}
+
+#result-actions .btn-secondary {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-on-dark);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s;
+}
+
+#result-actions .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================
+   Result Page - Right Column (Order Details)
+   ======================================== */
+
+/* Step header with icon */
+.result-step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.result-step-icon {
+  font-size: 32px;
+}
+
+.result-step-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+/* Details section container */
+.result-details-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Card styles - clean white cards like checkout */
+.result-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.result-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+/* Card header with icon and title */
+.result-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: #F8FAFC;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.result-card-header svg {
+  color: var(--text-secondary);
+}
+
+/* Card body */
+.result-card-body {
+  padding: 20px;
+}
+
+/* Info rows inside card */
+.result-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.result-info-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.result-info-row:first-child {
+  padding-top: 0;
+}
+
+/* Label and value styles */
+.result-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.result-value {
+  font-size: 15px;
+  color: var(--text-main);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Monospace for IDs */
+.result-value-mono {
+  font-family: 'Monaco', 'Courier New', monospace;
+  background: #F8FAFC;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--brand-primary);
+}
+
+/* Amount styling - highlighted */
+.result-value-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--brand-accent);
+}
+
+.result-amount-row {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  margin: -4px -20px;
+  padding: 18px 20px !important;
+  border-radius: 8px;
+  border: none !important;
+}
+
+/* Highlight card variant */
+.result-card-highlight {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 1px var(--brand-accent);
+}
+
+.result-card-highlight .result-card-header {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  border-bottom-color: var(--brand-accent);
+}
+
+.result-card-highlight .result-card-header svg {
+  color: var(--brand-accent);
+}
+
+/* Success notice badge */
+.result-success-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+  border: 1px solid var(--brand-primary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E40AF;
+  margin-top: 24px;
+}
+
+.result-success-notice svg {
+  color: var(--brand-primary);
+}
+
+/* Error card - updated design */
+.error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.error-card svg {
+  color: #DC2626;
+}
+
+.error-card p {
+  color: #991B1B;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 500;
+}

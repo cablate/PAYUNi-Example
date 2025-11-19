@@ -13,6 +13,13 @@ const products = [
       "1 個使用者帳號"
     ],
     recommended: false,
+    periodConfig: {
+      periodType: "month",
+      periodDate: "1",
+      periodTimes: 12,
+      fType: "build",
+      fAmt: null
+    }
   },
   {
     id: "plan_pro",
@@ -28,6 +35,13 @@ const products = [
       "進階數據分析"
     ],
     recommended: true,
+    periodConfig: {
+      periodType: "month",
+      periodDate: "1",
+      periodTimes: 12,
+      fType: "build",
+      fAmt: null
+    }
   },
   {
     id: "plan_enterprise",
@@ -43,6 +57,13 @@ const products = [
       "客製化整合服務"
     ],
     recommended: false,
+    periodConfig: {
+      periodType: "month",
+      periodDate: "1",
+      periodTimes: 12,
+      fType: "build",
+      fAmt: null
+    }
   },
 
   // --- One-time Purchases ---

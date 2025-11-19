@@ -238,7 +238,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const res = await fetch("/create-payment", {
+      // 根據商品類型選擇 API endpoint
+      const product = productsData.find(p => p.id === selectedProductId);
+      const endpoint = product.type === 'subscription' 
+        ? '/create-subscription' 
+        : '/create-payment';
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
