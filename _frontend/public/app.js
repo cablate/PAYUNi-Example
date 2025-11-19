@@ -1,36 +1,47 @@
-// Turnstile 驗證成功後的回呼函式
+// Turnstile Callback
 window.onTurnstileSuccess = function(token) {
-  const loginBtn = document.getElementById("login-btn");
-  if (loginBtn) {
-    loginBtn.classList.remove("loading"); // 移除載入狀態
-    loginBtn.disabled = false; // 啟用 Google 登入按鈕
-    loginBtn.title = ""; // 清除提示
-  }
+  // Optional: You could auto-enable something here if needed
+  // For now, we just wait for the Pay button click which checks turnstile.getResponse()
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  const productListEl = document.getElementById("product-list");
+  // UI Elements
+  const productOptionsEl = document.getElementById("product-options");
+  const payBtn = document.getElementById("pay-btn");
+  const totalAmountEl = document.getElementById("total-amount");
   const errorEl = document.getElementById("error-message");
   const loadingModal = document.getElementById("loading-modal");
+  
+  // Sections
+  const authSection = document.getElementById("auth-section");
+  const planSection = document.getElementById("plan-section");
+  const paymentSection = document.getElementById("payment-section");
 
-  // Auth UI elements
+  // Auth Views
+  const guestView = document.getElementById("guest-view");
+  const userView = document.getElementById("user-view");
   const loginBtn = document.getElementById("login-btn");
-  const userInfoEl = document.getElementById("user-info");
+  
+  // User Meta
   const userAvatarEl = document.getElementById("user-avatar");
   const userNameEl = document.getElementById("user-name");
+  const logoutBtn = document.getElementById("logout-btn");
 
-  // Order History UI elements
+  // Order History
   const myOrdersBtn = document.getElementById("my-orders-btn");
   const orderHistoryModal = document.getElementById("order-history-modal");
   const closeOrderModalBtn = document.getElementById("close-order-modal-btn");
   const orderHistoryBody = document.getElementById("order-history-body");
   const noOrdersMessage = document.getElementById("no-orders-message");
 
+  // State
   let csrfToken = "";
   let currentUser = null;
-  let clientConfig = {}; // 新增：儲存從後端獲取的配置
+  let clientConfig = {};
+  let selectedProductId = null;
+  let productsData = [];
 
-  // Helper functions for UI feedback
+  // --- Helpers ---
   const showError = (message) => {
     errorEl.textContent = message;
     errorEl.classList.add("show");
@@ -40,155 +51,190 @@ document.addEventListener("DOMContentLoaded", () => {
   const showLoading = () => loadingModal.classList.add("show");
   const hideLoading = () => loadingModal.classList.remove("show");
 
-  // Updates UI based on login status
+  // --- Auth Logic ---
   const updateUserUI = (user) => {
     currentUser = user;
-    const payButtons = document.querySelectorAll(".pay-button");
-    const captchaWrapper = document.querySelector(".captcha-wrapper");
-
-    // 預設隱藏所有認證相關的元素
-    loginBtn.classList.add("hidden");
-    userInfoEl.classList.add("hidden");
-
+    
     if (user) {
-      // User is logged in
-      userInfoEl.classList.remove("hidden");
+      // Show User View
+      guestView.classList.add("hidden");
+      userView.classList.remove("hidden");
+      
+      // Fill Data
       userAvatarEl.src = user.picture || "";
       userNameEl.textContent = user.name;
-      // Enable all pay buttons
-      payButtons.forEach(button => {
-        button.disabled = false;
-        button.title = "";
-      });
-      // 已登入，顯示 Turnstile
-      if (captchaWrapper) captchaWrapper.style.display = "flex";
+      
+      // Enable Step 2 (Plan Selection)
+      planSection.classList.remove("disabled");
+      
+      // If a plan is already selected, enable Step 3
+      if (selectedProductId) {
+        paymentSection.classList.remove("disabled");
+        payBtn.disabled = false;
+      }
     } else {
-      // User is not logged in
-      loginBtn.classList.remove("hidden"); // 顯示登入按鈕
-      loginBtn.classList.remove("loading"); // 移除載入狀態
-      loginBtn.disabled = false; // 啟用按鈕
-      loginBtn.title = ""; // 移除提示訊息
-
-      // Disable all pay buttons and add a tooltip
-      payButtons.forEach(button => {
-        button.disabled = true;
-        button.title = "請先登入以進行購買";
-      });
-      // 未登入，隱藏 Turnstile
-      if (captchaWrapper) captchaWrapper.style.display = "none";
+      // Show Guest View
+      userView.classList.add("hidden");
+      guestView.classList.remove("hidden");
+      
+      // Disable Steps 2 & 3
+      planSection.classList.add("disabled");
+      paymentSection.classList.add("disabled");
+      payBtn.disabled = true;
     }
   };
 
-  // Checks login status with the backend
   const checkLoginStatus = async () => {
     try {
       const res = await fetch("/api/me");
-      if (!res.ok) throw new Error("Failed to check login status");
+      if (!res.ok) throw new Error("Failed");
       const data = await res.json();
-      // The UI update will be called after products are rendered
       return data.loggedIn ? data.user : null;
-    } catch (error) {
-      console.error("Error checking login status:", error);
-      // Don't show error to user, just assume logged out
+    } catch (e) {
       return null;
     }
   };
 
-  // 新增：從後端獲取客戶端配置
-  const fetchClientConfig = async () => {
-    try {
-      const res = await fetch("/api/client-config");
-      if (!res.ok) throw new Error("Failed to fetch client config");
-      clientConfig = await res.json();
-    } catch (error) {
-      console.error("Error fetching client config:", error);
-      showError("無法載入配置資訊，請稍後再試。");
-    }
-  };
+  // --- Product Logic ---
+  // --- Product Logic ---
+  let currentTab = 'subscription'; // 'subscription' | 'one_time'
 
-  // Fetches CSRF token on page load
-  const fetchCsrfToken = async () => {
-    try {
-      const res = await fetch("/csrf-token");
-      if (!res.ok) throw new Error("CSRF token fetch failed");
-      const data = await res.json();
-      csrfToken = data.csrfToken;
-    } catch (error) {
-      console.error("Failed to fetch CSRF token:", error);
-      showError("安全憑證載入失敗，請重新整理頁面。");
-    }
-  };
-
-  // Renders product cards to the DOM
-  const renderProducts = (products) => {
-    productListEl.innerHTML = ""; // Clear existing products
-    products.forEach((product) => {
-      const card = document.createElement("div");
-      card.className = "product-card";
-      card.innerHTML = `
-        <div class="product-info">
-          <h3 class="product-name">${product.name}</h3>
-          <p class="product-description">${product.description}</p>
-          <div class="product-price">${product.price} TWD</div>
-          <button class="pay-button" data-product-id="${product.id}">立即購買</button>
-        </div>
-      `;
-      productListEl.appendChild(card);
+  const renderProducts = () => {
+    productOptionsEl.innerHTML = "";
+    
+    // Filter products based on tab
+    const filteredProducts = productsData.filter(p => {
+      if (currentTab === 'subscription') return p.type === 'subscription' || !p.type;
+      return p.type === 'one_time';
     });
 
-    // Add event listeners to all new buttons
-    document.querySelectorAll(".pay-button").forEach((button) => {
-      button.addEventListener("click", handlePayment);
-    });
-  };
-
-  // Fetches products from the API and renders them
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch("/api/products");
-      if (!res.ok) throw new Error("Failed to fetch products");
-      const products = await res.json();
-      renderProducts(products);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      showError("無法載入商品列表，請稍後再試。");
-    }
-  };
-
-  // Handles the payment creation process
-  const handlePayment = async (event) => {
-    const button = event.currentTarget;
-    const productID = button.dataset.productId;
-
-    // Double check if user is logged in before proceeding
-    // 如果未登入，直接導向 Google 登入，無需顯示錯誤或 Turnstile
-    if (!currentUser) {
-      button.disabled = true;
-      button.classList.add("loading");
-      window.location.href = "/auth/google";
+    if (filteredProducts.length === 0) {
+      productOptionsEl.innerHTML = `<div class="error show">No products found for this category.</div>`;
       return;
     }
 
+    filteredProducts.forEach(product => {
+      if (currentTab === 'subscription') {
+        renderSubscriptionCard(product);
+      } else {
+        renderOneTimeCard(product);
+      }
+    });
+  };
+
+  const renderSubscriptionCard = (product) => {
+    const option = document.createElement("div");
+    option.className = `plan-option fade-in`;
+    option.dataset.id = product.id;
+    
+    option.innerHTML = `
+      <input type="radio" name="plan" class="plan-radio" value="${product.id}">
+      <div class="plan-details">
+        <span class="plan-name">${product.name}</span>
+        <span class="plan-desc">${product.description}</span>
+      </div>
+      <span class="plan-price">$${product.price} <span style="font-size:12px;font-weight:400;color:#64748B">${product.period || ''}</span></span>
+    `;
+    
+    option.addEventListener("click", () => selectProduct(product.id));
+    productOptionsEl.appendChild(option);
+  };
+
+  const renderOneTimeCard = (product) => {
+    const card = document.createElement("div");
+    card.className = `product-card-horizontal fade-in`;
+    card.dataset.id = product.id;
+
+    // Use icon (emoji) if available, otherwise fallback to image
+    let thumbHTML = '';
+    if (product.icon) {
+      const bgColor = product.iconColor || '#E2E8F0';
+      thumbHTML = `<div class="product-thumb product-icon" style="background: ${bgColor}">${product.icon}</div>`;
+    } else {
+      const imageSrc = product.image || "https://placehold.co/64x64/E2E8F0/64748B?text=IMG";
+      thumbHTML = `<img src="${imageSrc}" alt="${product.name}" class="product-thumb">`;
+    }
+
+    card.innerHTML = `
+      ${thumbHTML}
+      <div class="product-info">
+        <span class="product-title">${product.name}</span>
+        <span class="product-meta">${product.features[0] || product.description}</span>
+      </div>
+      <span class="product-price-tag">$${product.price}</span>
+    `;
+
+    card.addEventListener("click", () => selectProduct(product.id));
+    productOptionsEl.appendChild(card);
+  };
+
+  const selectProduct = (id) => {
+    if (!currentUser) return;
+    
+    selectedProductId = id;
+    const product = productsData.find(p => p.id === id);
+    
+    // Update UI based on card type
+    const allCards = document.querySelectorAll(".plan-option, .product-card-horizontal");
+    allCards.forEach(el => {
+      if (el.dataset.id === id) {
+        el.classList.add("selected");
+        const radio = el.querySelector("input[type='radio']");
+        if (radio) radio.checked = true;
+      } else {
+        el.classList.remove("selected");
+        const radio = el.querySelector("input[type='radio']");
+        if (radio) radio.checked = false;
+      }
+    });
+    
+    // Update Total
+    totalAmountEl.textContent = `$${product.price}`;
+    
+    // Enable Step 3
+    paymentSection.classList.remove("disabled");
+    payBtn.disabled = false;
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch("/api/products");
+      if (!res.ok) throw new Error("Failed");
+      productsData = await res.json(); // Store globally
+      renderProducts(); // Render with current state
+    } catch (error) {
+      console.error(error);
+      productOptionsEl.innerHTML = `<div class="error show">Failed to load plans.</div>`;
+    }
+  };
+
+  // --- Tab Logic ---
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      // Update Tab UI
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      
+      // Update State & Render
+      currentTab = e.target.dataset.tab;
+      renderProducts();
+    });
+  });
+
+  // --- Payment Logic ---
+  const handlePayment = async () => {
+    if (!currentUser || !selectedProductId) return;
+    
     try {
       clearError();
-      button.disabled = true;
+      payBtn.disabled = true;
       showLoading();
-
-      const paymentPayload = {
-        productID,
-        turnstileToken: turnstile.getResponse(),
-      };
-
-      // 使用從後端獲取的配置
-      if (clientConfig.turnstileEnable && !paymentPayload.turnstileToken) {
-        showError("請完成人機驗證");
-        button.disabled = false;
-        return;
-      }
-
-      if (!csrfToken) {
-        showError("安全驗證失敗，請重新整理頁面");
-        button.disabled = false;
+      
+      const turnstileToken = turnstile.getResponse();
+      
+      if (clientConfig.turnstileEnable && !turnstileToken) {
+        showError("Please complete the security check.");
+        payBtn.disabled = false;
         return;
       }
 
@@ -198,17 +244,17 @@ document.addEventListener("DOMContentLoaded", () => {
           "Content-Type": "application/json",
           "X-CSRF-Token": csrfToken,
         },
-        body: JSON.stringify(paymentPayload),
+        body: JSON.stringify({
+          productID: selectedProductId,
+          turnstileToken: turnstileToken
+        }),
       });
 
       const resData = await res.json();
-      if (!res.ok) {
-        throw new Error(resData.error || "Payment creation failed");
-      }
+      if (!res.ok) throw new Error(resData.error || "Payment failed");
 
+      // Redirect logic
       const { payUrl, data } = resData;
-
-      // Create and submit a form to redirect to the payment gateway
       const form = document.createElement("form");
       form.method = "POST";
       form.action = payUrl;
@@ -221,81 +267,80 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       document.body.appendChild(form);
       form.submit();
+      
     } catch (error) {
-      console.error("Payment Error:", error);
-      showError(error.message || "支付建立失敗，請重試");
-      // Re-enable the button if payment fails
-      button.disabled = false;
-    } finally {
-      // Hide loading indicator regardless of outcome, as we are redirecting
-      // hideLoading();
+      console.error(error);
+      showError(error.message || "Payment creation failed");
+      payBtn.disabled = false;
     }
   };
 
-  // Renders the order history table
-  const renderOrderHistory = (orders) => {
-    orderHistoryBody.innerHTML = ""; // Clear previous results
-    if (orders && orders.length > 0) {
-      noOrdersMessage.classList.add("hidden");
-      orders.forEach(order => {
-        const row = document.createElement("tr");
-        const formattedDate = new Date(order.createdAt).toLocaleString("zh-TW", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        row.innerHTML = `
-          <td>${formattedDate}</td>
-          <td>${order.productName || "N/A"}</td>
-          <td>${order.tradeAmt}</td>
-          <td>${order.status}</td>
-        `;
-        orderHistoryBody.appendChild(row);
-      });
-    } else {
-      noOrdersMessage.classList.remove("hidden");
-    }
-  };
-
-  // Initialize the page
+  // --- Initialization ---
   const init = async () => {
     showLoading();
-    await fetchCsrfToken();
-    await fetchClientConfig(); // 在這裡呼叫，確保配置已載入
+    
+    // Parallel fetch
+    const [csrfRes, configRes] = await Promise.all([
+      fetch("/csrf-token"),
+      fetch("/api/client-config")
+    ]);
+    
+    if (csrfRes.ok) {
+      const data = await csrfRes.json();
+      csrfToken = data.csrfToken;
+    }
+    
+    if (configRes.ok) {
+      clientConfig = await configRes.json();
+    }
+    
+    // Load User & Products
     const user = await checkLoginStatus();
     await fetchProducts();
-    updateUserUI(user); // Update UI after products and buttons are on the page
+    
+    updateUserUI(user);
     hideLoading();
   };
 
-  init();
-
-  // Add event listener for the login button
+  // --- Event Listeners ---
+  payBtn.addEventListener("click", handlePayment);
+  
   if (loginBtn) {
     loginBtn.addEventListener("click", () => {
-      // Show loading spinner and disable button before redirecting
-      loginBtn.classList.add("loading");
-      loginBtn.disabled = true;
+      loginBtn.classList.add("loading"); // Optional visual feedback
       window.location.href = "/auth/google";
     });
   }
 
-  // Add event listeners for order history modal
+  // Order History Logic (Preserved)
   if (myOrdersBtn) {
     myOrdersBtn.addEventListener("click", async () => {
       showLoading();
       try {
         const res = await fetch("/api/my-orders");
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "無法獲取訂單");
+        if (!res.ok || !data.success) throw new Error(data.error);
+        
+        // Render Table
+        orderHistoryBody.innerHTML = "";
+        if (data.orders && data.orders.length > 0) {
+          noOrdersMessage.classList.add("hidden");
+          data.orders.forEach(order => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${new Date(order.createdAt).toLocaleDateString()}</td>
+              <td>${order.productName || "License"}</td>
+              <td>$${order.tradeAmt}</td>
+              <td><span class="status-badge status-${order.status.toLowerCase()}">${order.status}</span></td>
+            `;
+            orderHistoryBody.appendChild(row);
+          });
+        } else {
+          noOrdersMessage.classList.remove("hidden");
         }
-        renderOrderHistory(data.orders);
         orderHistoryModal.classList.remove("hidden");
-      } catch (error) {
-        showError(error.message);
+      } catch (e) {
+        showError(e.message);
       } finally {
         hideLoading();
       }
@@ -308,12 +353,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  // Close modal if user clicks outside the content area
   if (orderHistoryModal) {
-    orderHistoryModal.addEventListener("click", (event) => {
-      if (event.target === orderHistoryModal) {
-        orderHistoryModal.classList.add("hidden");
-      }
+    orderHistoryModal.addEventListener("click", (e) => {
+      if (e.target === orderHistoryModal) orderHistoryModal.classList.add("hidden");
     });
   }
+
+  // Run
+  init();
 });

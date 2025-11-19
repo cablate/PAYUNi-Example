@@ -1,19 +1,167 @@
-/* Basic styles, similar to style.css */
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f4f7f6; margin: 0; }
-.result-container { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 90%; }
-#icon-container svg { width: 80px; height: 80px; }
-.success #icon-container { color: #28a745; }
-.fail #icon-container { color: #dc3545; }
-h1 { font-size: 2em; margin-top: 20px; margin-bottom: 10px; }
-.success h1 { color: #28a745; }
-.fail h1 { color: #dc3545; }
-p { color: #666; font-size: 1.1em; }
+/* ========================================
+   DevCore Result Theme
+   ======================================== */
+:root {
+  --bg-dark: #0f172a;
+  --bg-card: rgba(30, 41, 59, 0.7);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --accent-cyan: #06b6d4;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --border-color: rgba(148, 163, 184, 0.1);
+  --glass-blur: blur(12px);
+  --neon-glow: 0 0 15px rgba(6, 182, 212, 0.3);
+  
+  --font-main: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+}
+
+.result-container {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  width: 90%;
+  max-width: 600px;
+  overflow: hidden;
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.terminal-header {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+
+.terminal-title {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-left: 10px;
+}
+
+.content-body {
+  padding: 40px;
+  text-align: center;
+}
+
+.status-icon svg {
+  width: 80px;
+  height: 80px;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+.success .status-icon { color: var(--accent-green); }
+.fail .status-icon { color: var(--accent-red); }
+
+.status-title {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  margin: 20px 0 10px;
+  letter-spacing: -0.5px;
+}
+
+.success .status-title { color: var(--accent-green); text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+.fail .status-title { color: var(--accent-red); text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+
+.status-message {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
 .hidden { display: none; }
-#details-container { margin-top: 30px; text-align: left; border-top: 1px solid #eee; padding-top: 20px; }
-h2 { text-align: center; color: #333; margin-bottom: 20px; }
-.details-grid { display: grid; gap: 10px; }
-.detail-item { display: flex; justify-content: space-between; padding: 10px; background-color: #fafafa; border-radius: 4px; }
-.detail-label { font-weight: bold; color: #555; }
-.detail-value { color: #333; }
-.home-button { display: inline-block; margin-top: 30px; padding: 12px 25px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; transition: background-color 0.3s; }
-.home-button:hover { background-color: #0056b3; }
+
+.details-panel {
+  margin-top: 30px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+}
+
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--accent-cyan);
+  margin-bottom: 15px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.details-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.home-button {
+  display: inline-block;
+  margin-top: 30px;
+  padding: 12px 30px;
+  background: transparent;
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  text-decoration: none;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-weight: bold;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.home-button:hover {
+  background: var(--accent-cyan);
+  color: var(--bg-dark);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+}

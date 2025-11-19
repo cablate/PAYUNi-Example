@@ -205,4 +205,49 @@
 
 ---
 
+## 🚨 漏風流程 vs 🔐 修復流程（Stage 1 → Stage 2 的橋接）
+
+### 漏風流程（新手容易做的做法）
+```text
+1. 前端直接用 `price` 傳金額給後端                    ← 沒驗證商品資料
+2. 後端只看前端帶的 `status`                        ← 跳過 Session/CSRF
+3. 回傳 Payuni 資料、用戶跳轉支付                   ← 直接相信前端的額度
+4. Webhook 收到後只寫資料庫，不驗簽、也不查 API  ← Webhook 可偽造
+5. Google Sheet 直接顯示「成功」，沒雙重驗證           ← 業務只看到成功訊息
+```
+
+**結論：** 這流程把驗證都丟給前端、Webhook 沒簽章、後端沒再次查詢，讓任意人只要模擬一個請求就能偽造訂單、改價或重複扣款。
+
+### 修復流程（Stage 2/3 導出的安全架構）
+- 後端從 `products.js` 查資料、重新計算金額 → 不信任前端參數。
+- 務必驗證 Session + CSRF，再執行 `create-order`。
+- Payuni Webhook 收到後先驗簽，再用 Query API 核實金額。
+- 僅在驗證 OK 後寫 Google Sheet，並記錄 QueryToken 供追蹤。
+- 每個步驟記錄日誌與追蹤 ID，確保問題可追查。
+
+### 流程圖：漏風 vs 修復
+```mermaid
+flowchart LR
+		A[前端輸入商品 + 金額] -->|直接傳| B[後端（未驗證 Session/CSRF）]
+		B --> C[Payuni]
+		C --> D[Webhook（未驗簽 / 不查 API）]
+		D --> E[Sheet 寫入成功]
+		subgraph Risk[⚠️ 漏風流程]
+			style B fill:#fdd
+			style D fill:#fdd
+		end
+
+		A2[前端輸入商品 + 金額] -->|先驗證 Session/CSRF| B2[後端（重新計算金額）]
+		B2 --> C2[Payuni]
+		C2 --> D2[Webhook（驗簽 + Query API）]
+		D2 --> E2[Sheet 寫入 + QueryToken]
+		subgraph Secure[✅ 修復流程]
+			style B2 fill:#dfd
+			style D2 fill:#dfd
+			style E2 fill:#efe
+		end
+```
+
+**Stage 1 問題提醒：** 如果你在這裡只看到「資料流動到哪」，Stage 2/3 就要補上「誰在驗證」、「需要對應哪一層防線」。這張對照是從挑戰到架構再到安全的橋梁，過去這套流程的人不知道為什麼 Stage 3 那些防線不可省略。
+
 *定位補述：這份教材的定位已依據 Pivoted_Payment_Gateway_Strategy 調整。我們不是在賣「金流串接工具」，而是在教「如何設計複雜系統的思維」。金流只是載體，讓你在真實場景中練習這些原則。*
