@@ -139,20 +139,51 @@
 
 ---
 
-## 🚨 漏風流程 vs 🔐 修復流程（Stage 1 → Stage 2 的橋接）
+## 🚨 你的系統哪裡在漏風？（漏洞 vs 防禦對照圖）
 
-### ❌ 漏風流程（新手最愛寫的 Code）
-```text
-1. 前端直接傳 `price: 100` 給後端                    ← 駭客改成 1 元
-2. 後端沒驗證 Session 就建立訂單                     ← 駭客用機器人灌爆資料庫
-3. Webhook 收到後直接信了                           ← 駭客偽造 Webhook 請求
-4. 資料庫顯示「已付款」                             ← 公司賠錢
+這張圖展示了**一般新手寫的「漏風流程」**。
+請注意圖中的**紅色警告**，那都是駭客會攻擊的地方。
+而**綠色標記**，就是這套實戰包幫你補上的防禦。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as 😈 駭客/使用者
+    participant Front as 💻 前端
+    participant Back as 🛡️ 後端
+    participant Pay as 💰 Payuni
+
+    Note over User, Pay: 🛑 階段一：建立訂單 (The Setup)
+
+    User->>Front: 點擊購買 (iPhone 15)
+    Front->>Back: API: 建立訂單 (price: 100)
+    
+    rect rgb(50, 0, 0)
+    Note right of Front: 🚨 漏洞 A：信任前端傳來的價格<br/>💀 後果：駭客用 F12 改成 1 元<br/>✅ 我們做到：【後端查價機制】<br/>(只傳 ID，價格由後端去資料庫查)
+    end
+
+    Back->>Pay: 跳轉支付頁面
+
+    Note over User, Pay: 🛑 階段二：付款確認 (The Payoff)
+
+    Pay-->>Back: Webhook: 付款成功 (Order 001)
+
+    rect rgb(50, 0, 0)
+    Note right of Pay: 🚨 漏洞 B：盲目相信 Webhook<br/>💀 後果：駭客偽造假通知，直接騙貨<br/>✅ 我們做到：【Hash 驗簽 + 主動反查】<br/>(不只驗簽名，還回頭問 Payuni 確認)
+    end
+
+    Back-->>User: 顯示購買成功
 ```
 
-### ✅ 修復流程（Battle-Tested 架構）
-- **後端查價**：前端傳 ID，後端自己去查資料庫價格。
-- **Session 驗證**：沒登入？沒 Token？直接擋在門外。
-- **Webhook 驗簽**：簽名不對？直接丟棄。
-- **API 二次確認**：Webhook 說成功還不夠，我們主動問 Payuni「真的嗎？」。
+---
 
-**Stage 1 結論：** 安全不是功能，是習慣。接下來的章節，我們會把這些習慣變成程式碼。
+## 💡 價值總結 (給老闆看)
+
+| 攻擊點 | 漏風系統 (Junior Dev) | 實戰防禦系統 (You) | 商業價值 |
+| :--- | :--- | :--- | :--- |
+| **前端改價** | 照單全收，公司賠錢 | **後端查價** (只信資料庫) | **損失風險歸零** |
+| **偽造通知** | 看到就信，被騙出貨 | **雙重驗證** (驗簽+反查) | **詐騙風險歸零** |
+| **責任歸屬** | 出事工程師背鍋 | **防禦縱深** (有憑有據) | **法律責任釐清** |
+
+**這就是為什麼這套系統值得你投入時間學習。**
+你買的不是 Code，你買的是**「睡得安穩的權利」**。
