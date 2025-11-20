@@ -21,11 +21,10 @@ export async function findExistingOrder(userEmail, productID) {
 }
 
 /**
- * 建立支付訂單（使用 Google Sheets API）
+ * 建立支付訂單
  */
 export async function createOrder(orderData) {
   try {
-    // 確保傳遞的參數符合 Sheets API 的格式
     const formattedData = {
       tradeNo: orderData.tradeNo,
       merID: orderData.merID || orderData.MerID,
@@ -38,36 +37,48 @@ export async function createOrder(orderData) {
     const db = getOrderDatabase();
     const success = await db.createOrder(formattedData);
     if (success) {
-      logger.info("Order record created in Google Sheets", { tradeNo: formattedData.tradeNo, email: formattedData.email });
+      logger.info("Order record created in Google Sheets", { 
+        tradeNo: formattedData.tradeNo, 
+        email: formattedData.email 
+      });
       return true;
     }
     return false;
   } catch (error) {
-    logger.warn("Failed to create order in Google Sheets", { tradeNo: orderData.tradeNo, error: error.message });
+    logger.warn("Failed to create order in Google Sheets", { 
+      tradeNo: orderData.tradeNo, 
+      error: error.message 
+    });
     return false;
   }
 }
 
 /**
- * 更新訂單狀態（使用 Google Sheets API）
+ * 更新訂單狀態
  */
 export async function updateOrder(updateData) {
   try {
     const db = getOrderDatabase();
     const success = await db.updateOrder(updateData);
     if (success) {
-      logger.info("Order updated in Google Sheets", { tradeNo: updateData.MerTradeNo, status: updateData.Status });
+      logger.info("Order updated in Google Sheets", { 
+        tradeNo: updateData.MerTradeNo, 
+        status: updateData.Status 
+      });
       return true;
     }
     return false;
   } catch (error) {
-    logger.warn("Failed to update order in Google Sheets", { tradeNo: updateData.MerTradeNo, error: error.message });
+    logger.warn("Failed to update order in Google Sheets", { 
+      tradeNo: updateData.MerTradeNo, 
+      error: error.message 
+    });
     return false;
   }
 }
 
 /**
- * 生成支付資料
+ * 生成支付資料（一次性）
  */
 export function generatePaymentData(tradeNo, product, userEmail, returnUrl) {
   const sdk = getPayuniSDK();
@@ -80,25 +91,21 @@ export function generatePaymentData(tradeNo, product, userEmail, returnUrl) {
 }
 
 /**
- * 驗證 Webhook Hash
+ * 生成支付資料（訂閱制）
  */
-export function verifyWebhookHash(encryptInfo, hashInfo) {
+export function generatePeriodPaymentData(tradeNo, product, userEmail, returnUrl) {
   const sdk = getPayuniSDK();
-  return sdk.verifyWebhookData(encryptInfo, hashInfo);
-}
+  const periodPaymentInfo = sdk.generatePeriodPaymentInfo(tradeNo, product, userEmail, returnUrl);
 
-/**
- * 解密 Webhook 資料
- */
-export function decryptWebhookData(encryptInfo) {
-  const sdk = getPayuniSDK();
-  return sdk.parseWebhookData(encryptInfo);
-}
+  logger.info("Period payment data generated", {
+    tradeNo,
+    productId: product.id,
+    periodType: product.periodConfig?.periodType,
+    periodTimes: product.periodConfig?.periodTimes,
+  });
 
-/**
- * 驗證並解析 Webhook 資料（推薦使用）
- */
-export function validateAndParseWebhook(encryptInfo, hashInfo) {
-  const sdk = getPayuniSDK();
-  return sdk.validateAndParseWebhook(encryptInfo, hashInfo);
+  return {
+    payUrl: periodPaymentInfo.payUrl,
+    data: periodPaymentInfo.data,
+  };
 }

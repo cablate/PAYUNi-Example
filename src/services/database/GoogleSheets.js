@@ -287,7 +287,7 @@ export class GoogleSheetsOrderDatabase {
       const updateRow = [
         existingRow[COLUMN_INDICES.tradeNo],
         existingRow[COLUMN_INDICES.merID],
-        existingRow[COLUMN_INDICES.tradeAmt],
+        Number(existingRow[COLUMN_INDICES.tradeAmt]),
         Status,
         existingRow[COLUMN_INDICES.email],
         existingRow[COLUMN_INDICES.createdAt],

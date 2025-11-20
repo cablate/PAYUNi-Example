@@ -11,14 +11,15 @@ import { printEnvironmentConfig, printError, printStartupBanner, printSuccess, p
 import { GOOGLE_CONFIG, REQUIRED_ENV_VARS, SERVER_CONFIG, SESSION_CONFIG } from "./src/config/constants.js";
 
 import {
-  configureCors,
-  configureCsrfProtection,
-  configureHelmet,
-  configureRequestLogger,
-  createGeneralLimiter,
-  createPaymentLimiter,
+    configureCors,
+    configureCsrfProtection,
+    configureHelmet,
+    configureRequestLogger,
+    createGeneralLimiter,
+    createPaymentLimiter,
 } from "./src/middleware/security.js";
 
+import { errorHandler } from "./src/middleware/errorHandler.js";
 import { createAuthRoutes } from "./src/routes/auth.js";
 import { createOrderRoutes } from "./src/routes/orders.js";
 import { createPaymentRoutes } from "./src/routes/payment.js";
@@ -158,16 +159,9 @@ app.get("/api/products", (req, res) => {
 // ========================================
 
 /**
- * 全域錯誤處理
+ * 全域錯誤處理 - 使用自定義錯誤處理中間件
  */
-app.use((err, req, res, next) => {
-  logger.error("Unhandled error", {
-    message: err.message,
-    path: req.path,
-    method: req.method,
-  });
-  res.status(500).json({ error: "Internal server error" });
-});
+app.use(errorHandler);
 
 /**
  * 未捕捉的例外
