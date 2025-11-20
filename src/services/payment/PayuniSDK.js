@@ -259,31 +259,6 @@ export class PayuniSDK {
   }
 
   /**
-   * 格式化支付回應
-   * 用於將 Webhook 資料轉換為標準的支付狀態物件
-   * @param {Object} webhookData - Webhook 解密後的資料
-   * @returns {Object} 標準化的支付狀態
-   */
-  formatPaymentResponse(webhookData) {
-    try {
-      return {
-        MerTradeNo: webhookData.MerTradeNo,      // 訂單編號
-        TradeSeq: webhookData.TradeSeq,          // 交易序號
-        Status: webhookData.Status,              // 訂單狀態
-        Amount: webhookData.TradeAmt,            // 交易金額
-        Message: webhookData.Message || "",      // 回應訊息
-        TradeDate: webhookData.TradeDate,        // 交易日期
-        CheckValue: webhookData.CheckValue,      // 檢查值
-      };
-    } catch (error) {
-      logger.error("格式化支付回應失敗", {
-        error: error.message,
-      });
-      throw error;
-    }
-  }
-
-  /**
    * 查詢單筆訂單狀態（主動確認支付）
    * 調用 Payuni 查詢 API 以確認交易狀態
    * @param {string} merTradeNo - 商店訂單編號
@@ -479,30 +454,6 @@ export class PayuniSDK {
       dataSource: result.DataSource, // A=完整, B=處理中未完整
       isPaid: parseInt(result.TradeStatus) === 1, // 是否已支付
     };
-  }
-
-  /**
-   * 批量查詢多筆訂單（如需要）
-   * @param {Array<string>} merTradeNos - 訂單編號陣列
-   * @returns {Promise<Array>} 查詢結果陣列
-   */
-  async queryMultipleTradeStatus(merTradeNos) {
-    try {
-      const results = [];
-      for (const merTradeNo of merTradeNos) {
-        const result = await this.queryTradeStatus(merTradeNo);
-        results.push({
-          merTradeNo,
-          ...result,
-        });
-        // 避免請求過於頻繁，每個請求間隔 100ms
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      return results;
-    } catch (error) {
-      logger.error("批量查詢訂單失敗", { error: error.message });
-      throw error;
-    }
   }
 
   // ========================================

@@ -1,39 +1,6 @@
-import axios from "axios";
-import { TURNSTILE_CONFIG } from "../config/constants.js";
 import logger from "../utils/logger.js";
 import { getOrderDatabase } from "./database/provider.js";
 import { getPayuniSDK } from "./payment/provider.js";
-
-/**
- * 驗證 Turnstile 驗證碼
- */
-export async function verifyTurnstile(token) {
-  if (!TURNSTILE_CONFIG.ENABLE) {
-    return true;
-  }
-
-  if (!token) {
-    logger.warn("Turnstile token is missing");
-    return false;
-  }
-
-  try {
-    const response = await axios.post(TURNSTILE_CONFIG.VERIFY_URL, {
-      secret: TURNSTILE_CONFIG.SECRET_KEY,
-      response: token,
-    });
-
-    if (!response.data.success) {
-      logger.warn("Turnstile verification failed", { errorCodes: response.data["error-codes"] });
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    logger.error("Turnstile verification error", { message: error.message });
-    throw error;
-  }
-}
 
 /**
  * 查詢現有未完成訂單
@@ -56,7 +23,7 @@ export async function findExistingOrder(userEmail, productID) {
 /**
  * 建立支付訂單（使用 Google Sheets API）
  */
-export async function createOrderInGAS(orderData) {
+export async function createOrder(orderData) {
   try {
     // 確保傳遞的參數符合 Sheets API 的格式
     const formattedData = {
@@ -84,7 +51,7 @@ export async function createOrderInGAS(orderData) {
 /**
  * 更新訂單狀態（使用 Google Sheets API）
  */
-export async function updateOrderInGAS(updateData) {
+export async function updateOrder(updateData) {
   try {
     const db = getOrderDatabase();
     const success = await db.updateOrder(updateData);

@@ -4,18 +4,18 @@ import { validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants.js";
 import {
-    createOrderInGAS,
+    createOrder,
     decryptWebhookData,
     findExistingOrder,
     generatePaymentData,
-    updateOrderInGAS,
-    verifyTurnstile,
+    updateOrder,
     verifyWebhookHash,
 } from "../services/index.js";
 import { getPayuniSDK } from "../services/payment/provider.js";
 import { generatePeriodPaymentData } from "../services/PeriodPaymentService.js";
 import logger from "../utils/logger.js";
 import { createPaymentValidation } from "../utils/validators.js";
+import { verifyTurnstile } from "../utils/turnstile.js";
 
 /**
  * 安全錯誤處理工具函數
@@ -109,7 +109,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       }),
     };
 
-    const gasSuccess = await createOrderInGAS(gasOrderData);
+    const gasSuccess = await createOrder(gasOrderData);
     if (!gasSuccess) {
       return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
     }
@@ -179,7 +179,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       }),
     };
 
-    const gasSuccess = await createOrderInGAS(gasOrderData);
+    const gasSuccess = await createOrder(gasOrderData);
     if (!gasSuccess) {
       return sendSecureError(res, 500, "訂單建立失敗", { tradeNo });
     }
@@ -289,7 +289,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         }
       };
 
-      const updateSuccess = await updateOrderInGAS(updateData);
+      const updateSuccess = await updateOrder(updateData);
       if (!updateSuccess) {
         logger.error("❌ 更新訂單失敗", { tradeNo });
         return res.send("FAIL");
