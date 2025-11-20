@@ -2,6 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -21,7 +22,9 @@
     "express-validator": "^7.3.0",
     "figlet": "^1.9.3",
     "google-auth-library": "^10.5.0",
+    "googleapis": "^139.0.0",
     "helmet": "^8.1.0",
+    "uuid": "^13.0.0",
     "winston": "^3.18.3"
   }
 }

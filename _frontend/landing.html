@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payuni 金流實戰包 | 戰鬥級 Node.js 金流架構</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="public/landing.css">
+</head>
+<body>
+
+    <!-- Urgency Banner -->
+    <div style="background: #FEF3C7; color: #92400E; text-align: center; padding: 10px; font-size: 14px; font-weight: 600; border-bottom: 1px solid #FDE68A;">
+        🔥 早鳥優惠倒數中：前 50 名下單，現省 40%！ <a href="index.html" style="color: #92400E; text-decoration: underline; margin-left: 8px;">立即搶購 &rarr;</a>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="#" class="brand-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <span>Payuni Secure</span>
+            </a>
+            <a href="index.html" class="nav-cta">取得完整原始碼</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <span class="hero-badge">🔥 戰鬥級 Production Ready 架構</span>
+            <h1 class="hero-title">停止重複造輪子<br>金流串接，一包搞定。</h1>
+            <p class="hero-subtitle">
+                專為專業開發者打造的 Node.js 金流架構。<br>
+                別讓你的商業信譽，冒險使用網路上拼湊的「Hello World」程式碼。
+            </p>
+            <div class="hero-actions">
+                <a href="index.html" class="btn-primary">
+                    立即取得原始碼
+                    <span style="display: block; font-size: 12px; font-weight: 400; opacity: 0.9; margin-top: 4px;">(省下 40+ 小時開發時間)</span>
+                </a>
+                <a href="#features" class="btn-secondary">查看架構細節</a>
+            </div>
+            
+            <div class="hero-image-wrapper">
+                <img src="public/images/hero.png" alt="Battle Tested Payment Architecture">
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Bar (Social Proof) -->
+    <section class="trust-section">
+        <div class="container">
+            <p class="trust-title">採用業界標準技術構建</p>
+            <div class="trust-logos">
+                <!-- Using text for now, replace with SVGs later -->
+                <span style="font-weight:700; font-size:20px; color:#333;">Node.js</span>
+                <span style="font-weight:700; font-size:20px; color:#333;">Express</span>
+                <span style="font-weight:700; font-size:20px; color:#333;">Google OAuth</span>
+                <span style="font-weight:700; font-size:20px; color:#333;">Payuni</span>
+                <span style="font-weight:700; font-size:20px; color:#333;">AES-256</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Price Anchoring Section (New) -->
+    <section class="section" style="background: #F8FAFC; border-bottom: 1px solid var(--border-color);">
+        <div class="container">
+            <div class="section-header text-center">
+                <h2 class="section-title">你的一小時值多少錢？</h2>
+                <p class="section-desc">這不只是一份程式碼，這是你「買回時間」的投資。</p>
+            </div>
+            
+            <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto;">
+                <!-- Anchor: The Hard Way -->
+                <div style="flex: 1; min-width: 300px; background: #fff; padding: 32px; border-radius: 16px; border: 1px solid #E2E8F0; opacity: 0.7;">
+                    <h3 style="font-size: 20px; font-weight: 700; color: #64748B; margin-bottom: 16px;">自行摸索開發</h3>
+                    <ul style="list-style: none; color: #64748B; font-size: 15px;">
+                        <li style="margin-bottom: 12px;">❌ 閱讀 Payuni 艱澀文件 (8hr+)</li>
+                        <li style="margin-bottom: 12px;">❌ 處理 OAuth 登入流程 (12hr+)</li>
+                        <li style="margin-bottom: 12px;">❌ 測試 Webhook 與除錯 (10hr+)</li>
+                        <li style="margin-bottom: 12px;">❌ 資安漏洞修補 (無價)</li>
+                    </ul>
+                    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #E2E8F0;">
+                        <p style="font-size: 14px; color: #64748B;">隱形成本</p>
+                        <p style="font-size: 32px; font-weight: 700; color: #64748B;">$30,000+</p>
+                        <p style="font-size: 12px; color: #94A3B8;">(以時薪 $800 計算)</p>
+                    </div>
+                </div>
+
+                <!-- Offer: The Smart Way -->
+                <div style="flex: 1; min-width: 300px; background: #fff; padding: 32px; border-radius: 16px; border: 2px solid var(--brand-primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); position: relative;">
+                    <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--brand-primary); color: white; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;">開發者首選</div>
+                    <h3 style="font-size: 20px; font-weight: 700; color: var(--brand-dark); margin-bottom: 16px;">金流實戰包</h3>
+                    <ul style="list-style: none; color: var(--text-main); font-size: 15px;">
+                        <li style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            完整原始碼 (Clone & Run)
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            5 層資安防護網
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            包含教學影片 + 逐字稿
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            商業授權 (可接案用)
+                        </li>
+                    </ul>
+                    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #E2E8F0;">
+                        <p style="font-size: 14px; color: var(--text-secondary);">限時早鳥價</p>
+                        <p style="font-size: 32px; font-weight: 700; color: var(--brand-primary);">不到一頓大餐</p>
+                        <p style="font-size: 12px; color: var(--text-secondary);">一次付費，終身更新</p>
+                    </div>
+                    <a href="index.html" class="btn-primary" style="display: block; text-align: center; margin-top: 20px;">立即鎖定優惠</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Audience Section (Consultative) -->
+    <section class="section audience-section">
+        <div class="container">
+            <div class="section-header text-center">
+                <h2 class="section-title">這套架構適合誰？</h2>
+                <p class="section-desc">我們為那些重視時間、信譽與程式品質的專業人士而打造。</p>
+            </div>
+
+            <div class="audience-grid">
+                <!-- Card 1: Developer -->
+                <div class="audience-card">
+                    <div class="card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                    </div>
+                    <h3 class="card-title">給 工程師 (Developer)</h3>
+                    <p class="card-desc">週五就要上線，你卻還卡在看 API 文件跟擔心資安漏洞？</p>
+                    
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        <span class="placeholder-text">建議圖片：Code Comparison</span>
+                        <span class="placeholder-hint">左邊是雜亂的 Spaghetti Code (Before)，右邊是整潔的模組化架構 (After)。</span>
+                    </div>
+
+                    <ul class="card-list">
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            省下 40+ 小時的研究時間
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            直接複製貼上「資安驗證過」的架構
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            告別「我電腦上可以跑」的窘境
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Card 2: Manager -->
+                <div class="audience-card">
+                    <div class="card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                    </div>
+                    <h3 class="card-title">給 管理者 (Manager)</h3>
+                    <p class="card-desc">你不寫 Code，但你承擔風險。你需要確保金流系統不會出包賠錢。</p>
+                    
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span class="placeholder-text">建議圖片：Risk Dashboard</span>
+                        <span class="placeholder-hint">一個簡單的儀表板，顯示「所有系統綠燈」，象徵安全與可控。</span>
+                    </div>
+
+                    <ul class="card-list">
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            搞懂「信任邊界」在哪裡
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            減少與技術團隊的溝通落差
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            晚上睡得著覺
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Card 3: Freelancer -->
+                <div class="audience-card">
+                    <div class="card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    </div>
+                    <h3 class="card-title">給 接案者 (Freelancer)</h3>
+                    <p class="card-desc">停止販賣工時。開始販賣「金融資安基礎建設」，讓你的報價翻倍。</p>
+                    
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        <span class="placeholder-text">建議圖片：Proposal Value</span>
+                        <span class="placeholder-hint">一張報價單的對比：左邊是「金流串接 $5000」，右邊是「金融資安架構 $30000」。</span>
+                    </div>
+
+                    <ul class="card-list">
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            白牌 (White-label) 商業授權
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            瞬間擁有「資深工程師」的作品集
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            提高專案報價的籌碼
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- The Stack Section -->
+    <section class="section" id="features">
+        <div class="container">
+            <div class="section-header text-center">
+                <h2 class="section-title">盒子裡裝了什麼？</h2>
+                <p class="section-desc">一套完整的 End-to-End 金流流程。絕不是那種只教一半的「Hello World」範例。</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <h3 class="feature-title">5 層資安防護網</h3>
+                    <p class="feature-desc">Helmet, CORS, CSRF, Session, 與 AES-256-GCM。我們不只是「串接」API，我們是在「防禦」它。</p>
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <span class="placeholder-text">建議圖片：The Shield Diagram</span>
+                        <span class="placeholder-hint">展示 5 層防禦的洋蔥圖或盾牌圖 (可使用我們生成的 Battle-Tested Hero 變體)。</span>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    </div>
+                    <h3 class="feature-title">Payuni SDK 整合</h3>
+                    <p class="feature-desc">Payuni API 的客製化封裝。幫你處理掉所有麻煩的加密簽章與參數驗證。</p>
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <span class="placeholder-text">建議圖片：Code Snippet</span>
+                        <span class="placeholder-hint">展示 PayuniSDK.js 的一段核心代碼，強調封裝後的簡潔。</span>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                    </div>
+                    <h3 class="feature-title">Google OAuth 2.0</h3>
+                    <p class="feature-desc">無縫登入體驗。我們處理了 Token 交換、Session 建立與使用者資料持久化。</p>
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <span class="placeholder-text">建議圖片：Login Flow UI</span>
+                        <span class="placeholder-hint">展示 Google 登入按鈕 -> 成功登入後的 User Profile 卡片。</span>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                    <h3 class="feature-title">Google Sheets 同步</h3>
+                    <p class="feature-desc">窮人的資料庫。自動將每一筆訂單同步到試算表，方便管理與對帳。</p>
+                    <!-- Visual Placeholder -->
+                    <div class="visual-placeholder">
+                        <span class="placeholder-text">建議圖片：Sheet Screenshot</span>
+                        <span class="placeholder-hint">展示一張 Google Sheet 的截圖，裡面有一行剛進來的訂單資料。</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Process Section -->
+    <section class="section" style="background: white;">
+        <div class="container">
+            <div class="section-header text-center">
+                <h2 class="section-title">如何運作？</h2>
+                <p class="section-desc">從 "git clone" 到 "收到第一筆款項"，只需 60 分鐘。</p>
+            </div>
+
+            <div class="process-steps">
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">Clone</h3>
+                    <p class="step-desc">下載原始碼並安裝套件。</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">Config</h3>
+                    <p class="step-desc">設定 .env 檔 (Payuni 與 Google 金鑰)。</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">Customize</h3>
+                    <p class="step-desc">15 分鐘內更換 Logo、顏色與商品。</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">4</div>
+                    <h3 class="step-title">Deploy</h3>
+                    <p class="step-desc">推送到 Vercel 或 Render，開始收款。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-links">
+                <a href="#">使用文件</a>
+                <a href="#">資安報告</a>
+                <a href="#">服務條款</a>
+            </div>
+            <p class="copyright">© 2025 Payuni Secure Architecture. All rights reserved.</p>
+        </div>
+    </footer>
+
+</body>
+</html>
