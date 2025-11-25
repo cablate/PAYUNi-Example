@@ -69,20 +69,28 @@ const HEADERS = [
   "備註",          // I (8)
   "商品ID",        // J (9)
   "商品名稱",      // K (10)
+  "續期收款單號",  // L (11) PeriodTradeNo
+  "支付方式",      // M (12)
+  "退款金額",      // N (13)
+  "取消時間",      // O (14)
 ];
 
 const COLUMN_INDICES = {
-  tradeNo: 0,      // A - 訂單編號
-  merID: 1,        // B - 商店ID
-  tradeAmt: 2,     // C - 交易金額
-  status: 3,       // D - 訂單狀態
-  email: 4,        // E - Email
-  createdAt: 5,    // F - 建立時間
-  completedAt: 6,  // G - 完成時間
-  tradeSeq: 7,     // H - 交易序號
-  remark: 8,       // I - 備註
-  productID: 9,    // J - 商品ID
-  productName: 10, // K - 商品名稱
+  tradeNo: 0,         // A - 訂單編號
+  merID: 1,           // B - 商店ID
+  tradeAmt: 2,        // C - 交易金額
+  status: 3,          // D - 訂單狀態
+  email: 4,           // E - Email
+  createdAt: 5,       // F - 建立時間
+  completedAt: 6,     // G - 完成時間
+  tradeSeq: 7,        // H - 交易序號
+  remark: 8,          // I - 備註
+  productID: 9,       // J - 商品ID
+  productName: 10,    // K - 商品名稱
+  periodTradeNo: 11,  // L - 續期收款單號
+  paymentMethod: 12,  // M - 支付方式
+  refundAmount: 13,   // N - 退款金額
+  cancelledAt: 14,    // O - 取消時間
 };
 
 // ========================================
@@ -208,7 +216,7 @@ export class GoogleSheetsOrderDatabase {
       // 寫入標題欄位 (訂單記錄)
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${SHEET_NAME}!A1:K1`,
+        range: `${SHEET_NAME}!A1:O1`, // 擴充到 O 欄
         valueInputOption: "RAW",
         requestBody: {
           values: [HEADERS],
@@ -247,7 +255,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
       });
 
       const rows = response.data.values || [];
@@ -311,11 +319,15 @@ export class GoogleSheetsOrderDatabase {
         "",                // I - 備註
         productID,         // J - 商品ID
         productName,       // K - 商品名稱
+        "",                // L - 續期收款單號 (Webhook 時填入)
+        "",                // M - 支付方式 (Webhook 時填入)
+        "",                // N - 退款金額
+        "",                // O - 取消時間
       ];
 
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
         valueInputOption: "RAW",
         requestBody: {
           values: [row],
@@ -347,7 +359,7 @@ export class GoogleSheetsOrderDatabase {
 
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
       });
 
       const rows = response.data.values || [];
@@ -381,11 +393,15 @@ export class GoogleSheetsOrderDatabase {
         JSON.stringify(updateData),
         existingRow[COLUMN_INDICES.productID],
         existingRow[COLUMN_INDICES.productName],
+        updateData.PeriodTradeNo || existingRow[COLUMN_INDICES.periodTradeNo] || "", // 更新 PeriodTradeNo
+        updateData.PaymentMethod || existingRow[COLUMN_INDICES.paymentMethod] || "", // 支付方式
+        existingRow[COLUMN_INDICES.refundAmount] || "", // 退款金額
+        existingRow[COLUMN_INDICES.cancelledAt] || "",  // 取消時間
       ];
 
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${SHEET_NAME}!A${rowNum}:K${rowNum}`,
+        range: `${SHEET_NAME}!A${rowNum}:O${rowNum}`, // 擴充到 O 欄
         valueInputOption: "RAW",
         requestBody: {
           values: [updateRow],
@@ -415,7 +431,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
       });
 
       const rows = response.data.values || [];
@@ -469,7 +485,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
       });
 
       const rows = response.data.values || [];
@@ -515,7 +531,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
       });
 
       const rows = response.data.values || [];
@@ -562,7 +578,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:K`,
+        range: `${SHEET_NAME}!A:O`, // 擴充到 O 欄
       });
 
       const rows = response.data.values || [];

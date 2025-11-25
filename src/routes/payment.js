@@ -206,6 +206,8 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         MerTradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
         TradeSeq: queryData.tradeNo,
         Status: queryData.tradeStatusText,
+        PeriodTradeNo: parsedData.PeriodTradeNo || "", // 訂閱制的續期收款單號
+        PaymentMethod: queryData.paymentMethod || queryData.cardBankName || "信用卡", // 支付方式
         rawData: {
           ...parsedData,
           ...queryData,
