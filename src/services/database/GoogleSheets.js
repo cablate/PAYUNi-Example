@@ -124,10 +124,15 @@ const HEADERS_ENTITLEMENTS = [
   "使用者ID",      // B (1) (GoogleID)
   "商品ID",        // C (2)
   "類型",          // D (3) (one_time, subscription)
-  "狀態",          // E (4) (active, expired)
+  "狀態",          // E (4) (active, expired, cancelled)
   "開始日期",      // F (5)
   "到期日期",      // G (6) (for subscription)
   "來源訂單",      // H (7)
+  "續期收款單號",  // I (8) PeriodTradeNo
+  "自動續約",      // J (9) AutoRenew (true/false)
+  "取消時間",      // K (10) CancelledAt
+  "上次續費日",    // L (11) LastRenewalDate
+  "下次扣款日",    // M (12) NextBillingDate
 ];
 
 const COLUMN_INDICES_ENTITLEMENTS = {
@@ -139,6 +144,11 @@ const COLUMN_INDICES_ENTITLEMENTS = {
   startDate: 5,
   expiryDate: 6,
   sourceOrderId: 7,
+  periodTradeNo: 8,      // I - 續期收款單號
+  autoRenew: 9,          // J - 自動續約
+  cancelledAt: 10,       // K - 取消時間
+  lastRenewalDate: 11,   // L - 上次續費日
+  nextBillingDate: 12,   // M - 下次扣款日
 };
 
 // ========================================
@@ -551,6 +561,7 @@ export class GoogleSheetsOrderDatabase {
             remark: row[COLUMN_INDICES.remark],
             productID: row[COLUMN_INDICES.productID],
             productName: row[COLUMN_INDICES.productName],
+            periodTradeNo: row[COLUMN_INDICES.periodTradeNo] || "", // ← 新增
           };
         }
       }
@@ -786,7 +797,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_ENTITLEMENTS}!A:H`,
+        range: `${SHEET_ENTITLEMENTS}!A:M`, // 擴充到 M 欄
       });
 
       const rows = response.data.values || [];
@@ -817,6 +828,11 @@ export class GoogleSheetsOrderDatabase {
               startDate: row[COLUMN_INDICES_ENTITLEMENTS.startDate],
               expiryDate: expiryDateStr,
               sourceOrderId: row[COLUMN_INDICES_ENTITLEMENTS.sourceOrderId],
+              periodTradeNo: row[COLUMN_INDICES_ENTITLEMENTS.periodTradeNo] || "",
+              autoRenew: row[COLUMN_INDICES_ENTITLEMENTS.autoRenew] === "true",
+              cancelledAt: row[COLUMN_INDICES_ENTITLEMENTS.cancelledAt] || "",
+              lastRenewalDate: row[COLUMN_INDICES_ENTITLEMENTS.lastRenewalDate] || "",
+              nextBillingDate: row[COLUMN_INDICES_ENTITLEMENTS.nextBillingDate] || "",
             });
           }
         }
@@ -840,7 +856,7 @@ export class GoogleSheetsOrderDatabase {
       // 先檢查是否已有該商品的權益
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_ENTITLEMENTS}!A:H`,
+        range: `${SHEET_ENTITLEMENTS}!A:M`, // 擴充到 M 欄
       });
 
       const rows = response.data.values || [];
@@ -860,21 +876,37 @@ export class GoogleSheetsOrderDatabase {
       // 計算新的到期日
       let newExpiryDate = null;
       if (product.type === "subscription" && product.periodConfig) {
-        let baseDate = now;
+        let baseDate = new Date(now); // ← 建立新的 Date 物件
         // 如果現有權益未過期，從現有到期日開始延長
         if (existingEntitlement && existingEntitlement[COLUMN_INDICES_ENTITLEMENTS.status] === "active") {
           const currentExpiry = new Date(existingEntitlement[COLUMN_INDICES_ENTITLEMENTS.expiryDate]);
           if (currentExpiry > now) {
-            baseDate = currentExpiry;
+            baseDate = new Date(currentExpiry); // ← 也建立新物件
           }
         }
 
-        // 簡單處理：假設都是月繳，增加 32 天作為緩衝，或精確計算
-        // 這裡為了 MVP 簡單，統一加 32 天 (涵蓋一個月)
-        // 更好的做法是根據 periodConfig.periodType 處理
         const daysToAdd = product.periodConfig.periodType === "month" ? 32 : 366;
         baseDate.setDate(baseDate.getDate() + daysToAdd);
         newExpiryDate = baseDate.toISOString();
+      }
+
+      // 計算下次扣款日 (NextBillingDate)
+      let nextBillingDate = null;
+      if (product.type === "subscription" && newExpiryDate) {
+        nextBillingDate = newExpiryDate; // 下次扣款日就是到期日
+      }
+
+      // 取得 PeriodTradeNo (從 Orders 表查詢)
+      let periodTradeNo = "";
+      if (product.type === "subscription") {
+        try {
+          const order = await this.getOrderByTradeNo(orderId);
+          if (order && order.periodTradeNo) {
+            periodTradeNo = order.periodTradeNo;
+          }
+        } catch (e) {
+          logger.warn("無法取得 PeriodTradeNo", { orderId });
+        }
       }
 
       if (existingRowIndex !== -1) {
@@ -894,10 +926,15 @@ export class GoogleSheetsOrderDatabase {
         fullRow[COLUMN_INDICES_ENTITLEMENTS.status] = "active";
         fullRow[COLUMN_INDICES_ENTITLEMENTS.expiryDate] = newExpiryDate || "";
         fullRow[COLUMN_INDICES_ENTITLEMENTS.sourceOrderId] = orderId;
+        fullRow[COLUMN_INDICES_ENTITLEMENTS.periodTradeNo] = periodTradeNo || existingEntitlement[COLUMN_INDICES_ENTITLEMENTS.periodTradeNo] || "";
+        fullRow[COLUMN_INDICES_ENTITLEMENTS.autoRenew] = "true"; // 預設自動續約
+        fullRow[COLUMN_INDICES_ENTITLEMENTS.cancelledAt] = existingEntitlement[COLUMN_INDICES_ENTITLEMENTS.cancelledAt] || ""; // 保留原值
+        fullRow[COLUMN_INDICES_ENTITLEMENTS.lastRenewalDate] = now.toISOString(); // 更新續費日
+        fullRow[COLUMN_INDICES_ENTITLEMENTS.nextBillingDate] = nextBillingDate || ""; // 下次扣款日
 
         await sheets.spreadsheets.values.update({
           spreadsheetId,
-          range: `${SHEET_ENTITLEMENTS}!A${existingRowIndex}:H${existingRowIndex}`,
+          range: `${SHEET_ENTITLEMENTS}!A${existingRowIndex}:M${existingRowIndex}`, // 擴充到 M
           valueInputOption: "RAW",
           requestBody: { values: [fullRow] },
         });
@@ -914,11 +951,16 @@ export class GoogleSheetsOrderDatabase {
           now.toISOString(),
           newExpiryDate || "",
           orderId,
+          periodTradeNo || "",          // I - PeriodTradeNo
+          "true",                        // J - AutoRenew (預設開啟)
+          "",                            // K - CancelledAt
+          now.toISOString(),             // L - LastRenewalDate (首次即為開始)
+          nextBillingDate || "",         // M - NextBillingDate
         ];
 
         await sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: `${SHEET_ENTITLEMENTS}!A:H`,
+          range: `${SHEET_ENTITLEMENTS}!A:M`, // 擴充到 M
           valueInputOption: "RAW",
           requestBody: { values: [row] },
         });
