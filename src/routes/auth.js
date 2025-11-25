@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getOrderDatabase } from "../services/database/provider.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -59,11 +60,34 @@ export function createAuthRoutes(oauth2Client) {
 
       const payload = ticket.getPayload();
 
+      // 整合使用者資料庫
+      const db = getOrderDatabase();
+      let user = await db.findUser(payload.sub);
+
+      if (!user) {
+        // 建立新使用者
+        const newUser = {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          picture: payload.picture,
+        };
+        await db.createUser(newUser);
+        user = newUser;
+      } else {
+        // 更新登入時間
+        await db.updateUserLogin(payload.sub);
+      }
+
+      // 取得使用者權益
+      const entitlements = await db.getUserEntitlements(payload.sub);
+
       req.session.user = {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
         picture: payload.picture,
+        entitlements: entitlements, // 儲存權益到 Session
       };
 
       req.session.save((err) => {

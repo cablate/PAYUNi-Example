@@ -63,6 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
       // Fill Data
       userAvatarEl.src = user.picture || "";
       userNameEl.textContent = user.name;
+
+      // Check for active subscription
+      const hasActiveSubscription = user.entitlements?.some(e => e.type === 'subscription' && e.status === 'active');
+      if (hasActiveSubscription) {
+        const badge = document.createElement("span");
+        badge.className = "status-badge status-active";
+        badge.style.marginLeft = "8px";
+        badge.style.fontSize = "12px";
+        badge.textContent = "Premium";
+        userNameEl.appendChild(badge);
+      }
       
       // Enable Step 2 (Plan Selection)
       planSection.classList.remove("disabled");
@@ -127,16 +138,33 @@ document.addEventListener("DOMContentLoaded", () => {
     option.className = `plan-option fade-in`;
     option.dataset.id = product.id;
     
+    // Check entitlement
+    const entitlement = currentUser?.entitlements?.find(e => e.productId === product.id && e.status === 'active');
+    const isSubscribed = !!entitlement;
+
+    let statusHtml = '';
+    if (isSubscribed) {
+      const expiryDate = new Date(entitlement.expiryDate).toLocaleDateString();
+      statusHtml = `<div class="plan-status">訂閱中 (到期: ${expiryDate})</div>`;
+      option.classList.add("owned");
+    }
+    
     option.innerHTML = `
-      <input type="radio" name="plan" class="plan-radio" value="${product.id}">
+      <input type="radio" name="plan" class="plan-radio" value="${product.id}" ${isSubscribed ? 'disabled' : ''}>
       <div class="plan-details">
-        <span class="plan-name">${product.name}</span>
+        <span class="plan-name">${product.name} ${statusHtml}</span>
         <span class="plan-desc">${product.description}</span>
       </div>
       <span class="plan-price">$${product.price} <span style="font-size:12px;font-weight:400;color:#64748B">${product.period || ''}</span></span>
     `;
     
-    option.addEventListener("click", () => selectProduct(product.id));
+    if (!isSubscribed) {
+      option.addEventListener("click", () => selectProduct(product.id));
+    } else {
+      option.style.cursor = "default";
+      option.style.opacity = "0.8";
+      option.style.borderColor = "#10B981";
+    }
     productOptionsEl.appendChild(option);
   };
 
@@ -144,6 +172,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const card = document.createElement("div");
     card.className = `product-card-horizontal fade-in`;
     card.dataset.id = product.id;
+
+    // Check entitlement
+    const isOwned = currentUser?.entitlements?.some(e => e.productId === product.id && e.status === 'active');
 
     // Use icon (emoji) if available, otherwise fallback to image
     let thumbHTML = '';
@@ -155,16 +186,25 @@ document.addEventListener("DOMContentLoaded", () => {
       thumbHTML = `<img src="${imageSrc}" alt="${product.name}" class="product-thumb">`;
     }
 
+    let actionBtn = `<span class="product-price-tag">$${product.price}</span>`;
+    if (isOwned) {
+      actionBtn = `<span class="product-price-tag" style="background:#10B981;color:white">已購買</span>`;
+      card.classList.add("owned");
+      card.style.cursor = "default";
+    }
+
     card.innerHTML = `
       ${thumbHTML}
       <div class="product-info">
         <span class="product-title">${product.name}</span>
         <span class="product-meta">${product.features[0] || product.description}</span>
       </div>
-      <span class="product-price-tag">$${product.price}</span>
+      ${actionBtn}
     `;
 
-    card.addEventListener("click", () => selectProduct(product.id));
+    if (!isOwned) {
+      card.addEventListener("click", () => selectProduct(product.id));
+    }
     productOptionsEl.appendChild(card);
   };
 

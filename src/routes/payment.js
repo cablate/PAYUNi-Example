@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { Router } from "express";
 import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants.js";
+import { getOrderDatabase } from "../services/database/provider.js";
 import {
   createOrder,
   findExistingOrder,
@@ -224,6 +225,38 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         isPaid: queryData.isPaid,
         verified: true,
       });
+
+      // 授予權益
+      try {
+        const db = getOrderDatabase();
+        // 取得完整訂單資訊以獲取 Email 和 ProductID
+        // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
+        const searchTradeNo = isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo;
+        const order = await db.getOrderByTradeNo(searchTradeNo);
+        if (order) {
+          const product = products.find((p) => p.id === order.productID);
+          const user = await db.findUserByEmail(order.email);
+
+          if (product && user) {
+            await db.grantEntitlement(user.googleId, product, searchTradeNo);
+            logger.info("✓ 權益已授予", { userId: user.googleId, productId: product.id });
+          } else {
+            logger.warn("無法授予權益：找不到商品或使用者", { 
+              productId: order.productID, 
+              email: order.email 
+            });
+          }
+        } else {
+          logger.warn("無法授予權益：找不到訂單", { 
+            originalTradeNo: tradeNo,
+            searchTradeNo: searchTradeNo
+          });
+        }
+      } catch (entitlementError) {
+        logger.error("授予權益時發生錯誤", { error: entitlementError.message });
+        // 不阻擋 Webhook 回應，因為訂單已更新成功
+      }
+
       res.send("OK");
     } catch (error) {
       logger.error("Webhook processing error", { message: error.message });
