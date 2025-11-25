@@ -110,9 +110,22 @@ export function createAuthRoutes(oauth2Client) {
   /**
    * 取得當前使用者資訊
    */
-  router.get("/api/me", (req, res) => {
+  router.get("/api/me", async (req, res) => {
     if (req.session.user) {
-      res.json({ loggedIn: true, user: req.session.user });
+      try {
+        // 每次都重新查詢最新的權益狀態
+        const db = getOrderDatabase();
+        const entitlements = await db.getUserEntitlements(req.session.user.id);
+        
+        // 更新 Session 中的權益資料
+        req.session.user.entitlements = entitlements;
+        
+        res.json({ loggedIn: true, user: req.session.user });
+      } catch (error) {
+        logger.error("Failed to fetch entitlements in /api/me", { error: error.message });
+        // 即使查詢失敗，也回傳基本使用者資訊（但沒有權益）
+        res.json({ loggedIn: true, user: { ...req.session.user, entitlements: [] } });
+      }
     } else {
       res.json({ loggedIn: false });
     }

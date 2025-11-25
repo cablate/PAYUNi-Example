@@ -134,6 +134,34 @@ const COLUMN_INDICES_ENTITLEMENTS = {
 };
 
 // ========================================
+// Period Payments Sheet (訂閱扣款記錄)
+// ========================================
+const SHEET_PERIOD_PAYMENTS = "訂閱扣款記錄";
+const HEADERS_PERIOD_PAYMENTS = [
+  "扣款ID",          // A (0)
+  "續期收款單號",    // B (1) PeriodTradeNo
+  "原始訂單號",      // C (2) 對應 Orders 表的 _0 訂單
+  "期數",           // D (3) 1, 2, 3...
+  "交易序號",        // E (4) PayUNi TradeNo
+  "金額",           // F (5)
+  "狀態",           // G (6)
+  "扣款時間",        // H (7)
+  "備註",           // I (8)
+];
+
+const COLUMN_INDICES_PERIOD_PAYMENTS = {
+  paymentId: 0,
+  periodTradeNo: 1,
+  baseOrderNo: 2,
+  sequenceNo: 3,
+  tradeSeq: 4,
+  amount: 5,
+  status: 6,
+  paymentTime: 7,
+  remark: 8,
+};
+
+// ========================================
 // Google Sheets 實現
 // ========================================
 
@@ -192,6 +220,9 @@ export class GoogleSheetsOrderDatabase {
 
       // 初始化 Entitlements Sheet
       await this._initializeSheet(sheets, spreadsheetId, SHEET_ENTITLEMENTS, HEADERS_ENTITLEMENTS);
+
+      // 初始化 Period Payments Sheet
+      await this._initializeSheet(sheets, spreadsheetId, SHEET_PERIOD_PAYMENTS, HEADERS_PERIOD_PAYMENTS);
 
       logger.info("試算表初始化成功", { spreadsheetId, sheetName: SHEET_NAME });
       return true;
@@ -882,6 +913,100 @@ export class GoogleSheetsOrderDatabase {
     } catch (error) {
       logger.error("授予權益失敗", { error: error.message });
       return false;
+    }
+  }
+
+  // ========================================
+  // 訂閱扣款記錄 (Period Payments)
+  // ========================================
+
+  /**
+   * 記錄訂閱期數扣款
+   */
+  async recordPeriodPayment(paymentData) {
+    const sheets = getSheetsClient();
+    const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+
+    try {
+      const {
+        periodTradeNo,
+        baseOrderNo,
+        sequenceNo,
+        tradeSeq,
+        amount,
+        status,
+        paymentTime,
+        remark = "",
+      } = paymentData;
+
+      const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      
+      const row = [
+        paymentId,
+        periodTradeNo,
+        baseOrderNo,
+        sequenceNo,
+        tradeSeq,
+        amount,
+        status,
+        paymentTime || new Date().toISOString(),
+        remark,
+      ];
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `${SHEET_PERIOD_PAYMENTS}!A:I`,
+        valueInputOption: "RAW",
+        requestBody: { values: [row] },
+      });
+
+      logger.info("訂閱扣款記錄成功", { periodTradeNo, sequenceNo, amount });
+      return true;
+    } catch (error) {
+      logger.error("記錄訂閱扣款失敗", { error: error.message });
+      return false;
+    }
+  }
+
+  /**
+   * 取得訂閱的所有扣款記錄
+   */
+  async getPeriodPayments(baseOrderNo) {
+    const sheets = getSheetsClient();
+    const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${SHEET_PERIOD_PAYMENTS}!A:I`,
+      });
+
+      const rows = response.data.values || [];
+      const payments = [];
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row[COLUMN_INDICES_PERIOD_PAYMENTS.baseOrderNo] === baseOrderNo) {
+          payments.push({
+            paymentId: row[COLUMN_INDICES_PERIOD_PAYMENTS.paymentId],
+            periodTradeNo: row[COLUMN_INDICES_PERIOD_PAYMENTS.periodTradeNo],
+            baseOrderNo: row[COLUMN_INDICES_PERIOD_PAYMENTS.baseOrderNo],
+            sequenceNo: parseInt(row[COLUMN_INDICES_PERIOD_PAYMENTS.sequenceNo]) || 0,
+            tradeSeq: row[COLUMN_INDICES_PERIOD_PAYMENTS.tradeSeq],
+            amount: parseFloat(row[COLUMN_INDICES_PERIOD_PAYMENTS.amount]),
+            status: row[COLUMN_INDICES_PERIOD_PAYMENTS.status],
+            paymentTime: row[COLUMN_INDICES_PERIOD_PAYMENTS.paymentTime],
+            remark: row[COLUMN_INDICES_PERIOD_PAYMENTS.remark],
+          });
+        }
+      }
+
+      // 按期數排序
+      payments.sort((a, b) => a.sequenceNo - b.sequenceNo);
+      return payments;
+    } catch (error) {
+      logger.error("取得訂閱扣款記錄失敗", { error: error.message });
+      return [];
     }
   }
 }

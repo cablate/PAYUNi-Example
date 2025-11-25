@@ -342,9 +342,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Load User & Products
     const user = await checkLoginStatus();
-    await fetchProducts();
+    currentUser = user; // ← 先設定 currentUser
     
-    updateUserUI(user);
+    await fetchProducts(); // ← 這樣 renderProducts 才能讀到 currentUser
+    
+    updateUserUI(user); // UI 更新
     hideLoading();
   };
 

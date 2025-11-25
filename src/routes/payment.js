@@ -252,6 +252,25 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
             searchTradeNo: searchTradeNo
           });
         }
+
+        // 記錄訂閱扣款（如果是訂閱制）
+        if (isPeriod) {
+          const periodTradeNo = parsedData.PeriodTradeNo || "";
+          const sequenceMatch = tradeNo.match(/_(\d+)$/);
+          const sequenceNo = sequenceMatch ? parseInt(sequenceMatch[1]) : 0;
+
+          await db.recordPeriodPayment({
+            periodTradeNo: periodTradeNo,
+            baseOrderNo: searchTradeNo,
+            sequenceNo: sequenceNo,
+            tradeSeq: queryData.tradeNo,
+            amount: queryData.amount,
+            status: queryData.tradeStatusText,
+            paymentTime: queryData.paymentDay || new Date().toISOString(),
+            remark: JSON.stringify({ isPaid: queryData.isPaid, message: queryData.message }),
+          });
+          logger.info("✓ 訂閱扣款已記錄", { periodTradeNo, sequenceNo });
+        }
       } catch (entitlementError) {
         logger.error("授予權益時發生錯誤", { error: entitlementError.message });
         // 不阻擋 Webhook 回應，因為訂單已更新成功
