@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>我的訂閱 - Payuni Secure</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/style.css" />
+  </head>
+  <body>
+    <main class="checkout-layout">
+      <!-- Left Column: Summary -->
+      <div class="checkout-summary">
+        <div class="summary-content">
+          <div class="brand-header">
+            <div class="brand-logo">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <span>Payuni Secure</span>
+            </div>
+            <span class="brand-tag">Subscriptions</span>
+          </div>
+
+          <h1 class="summary-title">Manage Your<br>Subscriptions</h1>
+          <p class="summary-desc">
+            View, manage, and cancel your active subscriptions. Your benefits will remain active until the end of your billing period.
+          </p>
+
+          <div class="footer-links-left footer-links-container">
+            <a href="/">← Back to Home</a>
+            <a href="/orders.html">My Orders</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Subscriptions List -->
+      <div class="checkout-form-container">
+        <div class="form-wrapper form-wrapper-wide">
+          
+          <!-- Login Required -->
+          <div id="loginPrompt" class="checkout-step login-prompt">
+            <div class="step-header">
+              <span class="step-number">🔒</span>
+              <h3>Login Required</h3>
+            </div>
+            <p class="step-desc">Please sign in to view your subscriptions.</p>
+            <button id="loginBtn" class="google-login-btn">
+              <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" />
+              Continue with Google
+            </button>
+          </div>
+
+          <!-- Subscriptions Container -->
+          <div id="subscriptionsContainer" class="subscriptions-container">
+            
+            <!-- Loading State -->
+            <div id="loadingState" class="checkout-step loading-state">
+              <p class="step-desc loading-text">Loading subscriptions...</p>
+            </div>
+
+            <!-- Subscriptions List -->
+            <div id="subscriptionsList"></div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="checkout-step empty-state">
+              <div class="step-header empty-state-header">
+                <span class="step-number">📭</span>
+                <h3>No Active Subscriptions</h3>
+              </div>
+              <p class="step-desc">You don't have any subscriptions yet.</p>
+              <a href="/" class="pay-button-large browse-products-btn">
+                Browse Products
+              </a>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancelModal" class="order-history-modal hidden">
+      <div class="modal-content">
+        <span class="close-btn" id="closeCancelModal">×</span>
+        <h2>⚠️ Cancel Subscription</h2>
+        <p id="cancelMessage" class="cancel-message"></p>
+        <div class="modal-actions">
+          <button id="confirmCancelBtn" class="pay-button-large btn-confirm-cancel">
+            Confirm Cancel
+          </button>
+          <button id="cancelCancelBtn" class="pay-button-large btn-keep-subscription">
+            Keep Subscription
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-modal" id="loading-modal">
+      <div class="spinner"></div>
+    </div>
+
+    <script src="/public/subscriptions.js" type="module"></script>
+  </body>
+</html>
