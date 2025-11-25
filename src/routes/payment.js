@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Router } from "express";
 import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants.js";
-import { getOrderDatabase } from "../services/database/provider.js";
+import { getDatabase } from "../services/database/provider.js";
 import {
   createOrder,
   findExistingOrder,
@@ -230,7 +230,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
 
       // 授予權益
       try {
-        const db = getOrderDatabase();
+        const db = getDatabase();
         // 取得完整訂單資訊以獲取 Email 和 ProductID
         // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
         const searchTradeNo = isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo;

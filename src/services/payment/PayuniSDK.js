@@ -510,6 +510,116 @@ export class PayuniSDK {
       throw error;
     }
   }
+
+  /**
+   * 取消續期收款（訂閱制取消）
+   * 調用 PayUNi 取消續期 API
+   * @param {string} periodTradeNo - 續期收款單號
+   * @returns {Promise<Object>} 取消結果
+   * @example
+   *   const result = await sdk.cancelPeriodPayment('PAY202511...');
+   *   if (result.success) {
+   *     // 取消成功
+   *   }
+   */
+  async cancelPeriodPayment(periodTradeNo) {
+    try {
+      logger.info("正在取消續期收款", { periodTradeNo });
+
+      // 構建取消參數
+      const timestamp = Math.round(new Date().getTime() / 1000);
+      const cancelData = {
+        MerID: this.merchantId,
+        PeriodNo: periodTradeNo,
+        Timestamp: timestamp,
+      };
+
+      // 加密和簽章
+      const plaintext = querystring.stringify(cancelData);
+      const encryptInfo = this._encrypt(plaintext);
+      const hashInfo = this._hash(encryptInfo);
+
+      // 構建請求體
+      const requestBody = {
+        MerID: this.merchantId,
+        Version: "2.0",
+        EncryptInfo: encryptInfo,
+        HashInfo: hashInfo,
+      };
+
+      // 發送取消請求
+      const response = await axios.post(`${this.apiUrl}/api/period/cancel`, requestBody, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "payuni-sdk",
+        },
+        timeout: 10000, // 10 秒超時
+      });
+
+      logger.info("取消 API 回應", {
+        periodTradeNo,
+        status: response.data?.Status,
+      });
+
+      // 驗證回應
+      if (!response.data?.Status || response.data.Status !== "SUCCESS") {
+        logger.warn("取消續期失敗", {
+          periodTradeNo,
+          status: response.data?.Status,
+          message: response.data?.Message,
+        });
+        return {
+          success: false,
+          error: response.data?.Message || "取消失敗",
+          status: response.data?.Status,
+        };
+      }
+
+      // 驗證回應的 Hash
+      if (response.data.EncryptInfo && response.data.HashInfo) {
+        const calculatedHash = this._hash(response.data.EncryptInfo);
+        if (calculatedHash !== response.data.HashInfo) {
+          logger.warn("取消結果 Hash 驗證失敗", { periodTradeNo });
+          return {
+            success: false,
+            error: "取消結果驗證失敗",
+            hashMismatch: true,
+          };
+        }
+
+        // 解密回應資料
+        const decryptedStr = this._decrypt(response.data.EncryptInfo);
+        const resultData = querystring.parse(decryptedStr);
+        
+        logger.info("續期已成功取消", {
+          periodTradeNo,
+          resultData,
+        });
+
+        return {
+          success: true,
+          data: resultData,
+          message: "續期取消成功",
+        };
+      }
+
+      // 如果沒有 EncryptInfo，代表是簡單的成功回應
+      logger.info("續期已成功取消", { periodTradeNo });
+      return {
+        success: true,
+        message: "續期取消成功",
+      };
+    } catch (error) {
+      logger.error("取消續期異常", {
+        periodTradeNo,
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 // 導出單例工廠

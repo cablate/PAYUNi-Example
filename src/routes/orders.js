@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getOrderDatabase } from "../services/database/provider.js";
+import { getDatabase } from "../services/database/provider.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -37,7 +37,7 @@ export function createOrderRoutes(oneTimeTokens) {
 
     try {
       const userEmail = req.session.user.email;
-      const db = getOrderDatabase();
+      const db = getDatabase();
       const orders = await db.getUserOrders(userEmail);
       res.json({ success: true, orders });
     } catch (error) {

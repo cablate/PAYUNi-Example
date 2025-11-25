@@ -11,18 +11,19 @@ import { printEnvironmentConfig, printError, printStartupBanner, printSuccess, p
 import { GOOGLE_CONFIG, REQUIRED_ENV_VARS, SERVER_CONFIG, SESSION_CONFIG } from "./src/config/constants.js";
 
 import {
-    configureCors,
-    configureCsrfProtection,
-    configureHelmet,
-    configureRequestLogger,
-    createGeneralLimiter,
-    createPaymentLimiter,
+  configureCors,
+  configureCsrfProtection,
+  configureHelmet,
+  configureRequestLogger,
+  createGeneralLimiter,
+  createPaymentLimiter,
 } from "./src/middleware/security.js";
 
 import { errorHandler } from "./src/middleware/errorHandler.js";
 import { createAuthRoutes } from "./src/routes/auth.js";
 import { createOrderRoutes } from "./src/routes/orders.js";
 import { createPaymentRoutes } from "./src/routes/payment.js";
+import subscriptionsRouter from "./src/routes/subscriptions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -117,6 +118,9 @@ app.use(createAuthRoutes(oauth2Client));
 
 // Payment 路由
 app.use(createPaymentRoutes(paymentLimiter, oneTimeTokens, products));
+
+// Subscription 路由
+app.use("/api/subscriptions", subscriptionsRouter);
 
 // Order 路由
 app.use(createOrderRoutes(oneTimeTokens));

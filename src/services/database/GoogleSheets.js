@@ -974,6 +974,80 @@ export class GoogleSheetsOrderDatabase {
     }
   }
 
+  /**
+   * 取消訂閱
+   * 更新 Entitlements 狀態：設定 cancelledAt, autoRenew=false
+   * 但權益維持到 expiryDate
+   */
+  async cancelSubscription(userId, periodTradeNo) {
+    const sheets = getSheetsClient();
+    const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+
+    try {
+      // 查詢該 periodTradeNo 對應的 entitlement
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${SHEET_ENTITLEMENTS}!A:M`,
+      });
+
+      const rows = response.data.values || [];
+      let targetRowIndex = -1;
+      let entitlement = null;
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row[COLUMN_INDICES_ENTITLEMENTS.userId] === userId && 
+            row[COLUMN_INDICES_ENTITLEMENTS.periodTradeNo] === periodTradeNo &&
+            row[COLUMN_INDICES_ENTITLEMENTS.status] === "active") {
+          targetRowIndex = i + 1;
+          entitlement = row;
+          break;
+        }
+      }
+
+      if (targetRowIndex === -1) {
+        logger.warn("找不到要取消的訂閱", { userId, periodTradeNo });
+        return {
+          success: false,
+          error: "找不到有效的訂閱",
+        };
+      }
+
+      // 更新 Entitlement
+      const now = new Date().toISOString();
+      const fullRow = [...entitlement];
+      fullRow[COLUMN_INDICES_ENTITLEMENTS.autoRenew] = "false"; // 關閉自動續約
+      fullRow[COLUMN_INDICES_ENTITLEMENTS.cancelledAt] = now;   // 記錄取消時間
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${SHEET_ENTITLEMENTS}!A${targetRowIndex}:M${targetRowIndex}`,
+        valueInputOption: "RAW",
+        requestBody: { values: [fullRow] },
+      });
+
+      logger.info("訂閱取消成功", {
+        userId,
+        periodTradeNo,
+        productId: entitlement[COLUMN_INDICES_ENTITLEMENTS.productId],
+      });
+
+      return {
+        success: true,
+        entitlement: {
+          productId: entitlement[COLUMN_INDICES_ENTITLEMENTS.productId],
+          expiryDate: entitlement[COLUMN_INDICES_ENTITLEMENTS.expiryDate],
+        },
+      };
+    } catch (error) {
+      logger.error("取消訂閱失敗", { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
   // ========================================
   // 訂閱扣款記錄 (Period Payments)
   // ========================================

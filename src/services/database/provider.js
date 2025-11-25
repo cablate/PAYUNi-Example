@@ -13,7 +13,7 @@ let dbInstance = null;
 /**
  * 取得資料庫實例（單例模式）
  */
-export function getOrderDatabase() {
+export function getDatabase() {
   if (!dbInstance) {
     const dbType = process.env.ORDER_DATABASE_TYPE || "google-sheets";
 
@@ -39,11 +39,11 @@ export function getOrderDatabase() {
 /**
  * 重置資料庫實例（用於測試）
  */
-export function resetOrderDatabase() {
+export function resetDatabase() {
   dbInstance = null;
 }
 
 export default {
-  getOrderDatabase,
-  resetOrderDatabase,
+  getDatabase,
+  resetDatabase,
 };

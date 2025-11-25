@@ -1,5 +1,5 @@
 import logger from "../utils/logger.js";
-import { getOrderDatabase } from "./database/provider.js";
+import { getDatabase } from "./database/provider.js";
 import { getPayuniSDK } from "./payment/provider.js";
 
 /**
@@ -7,7 +7,7 @@ import { getPayuniSDK } from "./payment/provider.js";
  */
 export async function findExistingOrder(userEmail, productID) {
   try {
-    const db = getOrderDatabase();
+    const db = getDatabase();
     const order = await db.findPendingOrder(userEmail, productID);
     if (order) {
       logger.info("Found existing pending order, reusing it.", { tradeNo: order.tradeNo });
@@ -34,7 +34,7 @@ export async function createOrder(orderData) {
       productName: orderData.productName,
     };
 
-    const db = getOrderDatabase();
+    const db = getDatabase();
     const success = await db.createOrder(formattedData);
     if (success) {
       logger.info("Order record created in Google Sheets", { 
@@ -58,7 +58,7 @@ export async function createOrder(orderData) {
  */
 export async function updateOrder(updateData) {
   try {
-    const db = getOrderDatabase();
+    const db = getDatabase();
     const success = await db.updateOrder(updateData);
     if (success) {
       logger.info("Order updated in Google Sheets", { 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getOrderDatabase } from "../services/database/provider.js";
+import { getDatabase } from "../services/database/provider.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -61,7 +61,7 @@ export function createAuthRoutes(oauth2Client) {
       const payload = ticket.getPayload();
 
       // 整合使用者資料庫
-      const db = getOrderDatabase();
+      const db = getDatabase();
       let user = await db.findUser(payload.sub);
 
       if (!user) {
@@ -114,7 +114,7 @@ export function createAuthRoutes(oauth2Client) {
     if (req.session.user) {
       try {
         // 每次都重新查詢最新的權益狀態
-        const db = getOrderDatabase();
+        const db = getDatabase();
         const entitlements = await db.getUserEntitlements(req.session.user.id);
         
         // 更新 Session 中的權益資料
