@@ -79,71 +79,100 @@ async function loadSubscriptions() {
  */
 function renderSubscriptions() {
   const subscriptionsList = document.getElementById("subscriptionsList");
+  
+  // Separate Active and Inactive
+  const activeSubs = subscriptions.filter(sub => sub.status === "active" && !sub.cancelledAt);
+  const inactiveSubs = subscriptions.filter(sub => sub.status !== "active" || sub.cancelledAt);
+  
+  let html = `<div class="dashboard-grid">`;
 
-  const html = subscriptions.map((sub) => {
-    const isActive = sub.status === "active" && !sub.cancelledAt;
-    const statusBadgeClass = isActive ? "status-paid" : "status-failed";
-    const statusText = isActive ? "Active" : "Cancelled";
-
-    return `
-      <div class="checkout-step subscription-card ${!isActive ? 'inactive' : ''}">
-        <div class="step-header">
-          <span class="step-number">${isActive ? '✓' : '✕'}</span>
-          <div class="subscription-header-content">
-            <h3>${getProductName(sub.productId)}</h3>
-            <span class="status-badge ${statusBadgeClass}">${statusText}</span>
+  // Render Active Subscriptions (Hero Cards)
+  if (activeSubs.length > 0) {
+    html += activeSubs.map(sub => {
+      // Calculate Progress
+      const start = new Date(sub.startDate).getTime();
+      const next = new Date(sub.nextBillingDate).getTime();
+      const now = Date.now();
+      const totalDuration = next - start;
+      const elapsed = now - start;
+      // Simple progress calculation for demo (cycle based)
+      // In real app, calculate based on current billing cycle start/end
+      const progressPercent = Math.min(100, Math.max(0, (elapsed % (30 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000) * 100)); // Approx monthly cycle
+      
+      return `
+        <div class="rich-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h3>${getProductName(sub.productId)}</h3>
+              <span class="card-subtitle">Active Plan</span>
+            </div>
+            <span class="status-badge-glow status-active">ACTIVE</span>
+          </div>
+          
+          <div class="progress-container">
+            <div class="progress-label">
+              <span>Billing Cycle</span>
+              <span>${Math.round(progressPercent)}%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
+            </div>
+          </div>
+          
+          <div class="card-body-grid">
+            <div class="info-group">
+              <span class="info-label">Next Billing Date</span>
+              <span class="info-value highlight">${formatDate(sub.nextBillingDate)}</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Start Date</span>
+              <span class="info-value">${formatDate(sub.startDate)}</span>
+            </div>
+          </div>
+          
+          <div class="card-actions">
+            <button class="btn-outline">Manage Plan</button>
+            ${sub.periodTradeNo ? `
+            <button 
+              class="btn-danger-text btn-cancel-subscription" 
+              data-period-trade-no="${sub.periodTradeNo}"
+              data-product-name="${getProductName(sub.productId)}"
+              data-expiry-date="${sub.expiryDate}"
+            >
+              Cancel Subscription
+            </button>
+            ` : ''}
           </div>
         </div>
-        
-        <div class="payment-summary subscription-summary">
-          <div class="row summary-row">
-            <span>Start Date</span>
-            <span>${formatDate(sub.startDate)}</span>
-          </div>
-          ${sub.expiryDate ? `
-          <div class="row summary-row">
-            <span>Expiry Date</span>
-            <span>${formatDate(sub.expiryDate)}</span>
-          </div>
-          ` : ''}
-          ${sub.nextBillingDate && isActive ? `
-          <div class="row summary-row">
-            <span>Next Billing</span>
-            <span class="next-billing-date">${formatDate(sub.nextBillingDate)}</span>
-          </div>
-          ` : ''}
-          ${sub.cancelledAt ? `
-          <div class="row">
-            <span>Cancelled</span>
-            <span>${formatDate(sub.cancelledAt)}</span>
-          </div>
-          ` : ''}
-        </div>
-        
-        ${sub.cancelledAt ? `
-          <p class="step-desc cancellation-notice">
-            ℹ️ Subscription cancelled. Benefits remain active until ${formatDate(sub.expiryDate)}
-          </p>
-        ` : ''}
-        
-        ${isActive && sub.periodTradeNo ? `
-          <button 
-            class="pay-button-large btn-cancel-subscription" 
-            data-period-trade-no="${sub.periodTradeNo}"
-            data-product-name="${getProductName(sub.productId)}"
-            data-expiry-date="${sub.expiryDate}"
-          >
-            Cancel Subscription
-          </button>
-        ` : ''}
-      </div>
+      `;
+    }).join("");
+  }
+  
+  // Render Inactive/Cancelled Subscriptions (Compact)
+  if (inactiveSubs.length > 0) {
+    html += `
+      <h3 style="margin: 24px 0 16px; color: var(--text-secondary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Past Subscriptions</h3>
     `;
-  }).join("");
+    html += inactiveSubs.map(sub => {
+      return `
+        <div class="rich-card" style="opacity: 0.7;">
+          <div class="card-header" style="margin-bottom: 0; padding-bottom: 0; border: none;">
+            <div class="card-title-group">
+              <h3 style="font-size: 16px;">${getProductName(sub.productId)}</h3>
+              <span class="card-subtitle">Ended: ${formatDate(sub.expiryDate || sub.cancelledAt)}</span>
+            </div>
+            <span class="status-badge-glow status-cancelled">CANCELLED</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
 
+  html += `</div>`; // Close grid
   subscriptionsList.innerHTML = html;
 
-  // 綁定取消按鈕
-  document.querySelectorAll(".pay-button-large[data-period-trade-no]").forEach((btn) => {
+  // Bind cancel buttons
+  document.querySelectorAll(".btn-cancel-subscription").forEach((btn) => {
     btn.addEventListener("click", handleCancelClick);
   });
 }

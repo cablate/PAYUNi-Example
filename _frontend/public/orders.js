@@ -47,80 +47,82 @@ async function loadOrders() {
 function renderOrders(orders) {
   const container = document.getElementById("ordersList");
   
-  const html = orders.map(order => {
+  // Calculate Stats
+  const totalOrders = orders.length;
+  const totalSpent = orders.reduce((sum, order) => sum + parseInt(order.tradeAmt || 0), 0);
+  
+  // Render Dashboard Header
+  let html = `
+    <div class="dashboard-stats">
+      <div class="stat-card">
+        <span class="stat-label">Total Orders</span>
+        <span class="stat-value">${totalOrders}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Total Spent</span>
+        <span class="stat-value">$${totalSpent.toLocaleString()}</span>
+      </div>
+    </div>
+    <div class="dashboard-grid">
+  `;
+  
+  // Render Rich Cards
+  html += orders.map(order => {
     const isSuccess = order.status === "SUCCESS" || order.status === "已付款" || order.status === "已完成";
-    const successClass = isSuccess ? 'success' : 'failed';
+    const statusClass = isSuccess ? 'status-paid' : 'status-cancelled';
+    const statusText = isSuccess ? 'PAID' : 'FAILED';
     
-    const date = new Date(order.createdAt).toLocaleDateString("zh-TW", {
+    const date = new Date(order.createdAt).toLocaleDateString("en-US", {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
-    });
-    const time = new Date(order.createdAt).toLocaleTimeString("zh-TW", {
-      hour: '2-digit',
-      minute: '2-digit'
     });
     
     return `
-      <div class="checkout-step order-card order-card-${successClass}">
-        <div class="order-status-badge order-status-badge-${successClass}">
-          ${isSuccess ? '✓ PAID' : '✗ FAILED'}
-        </div>
-        
-        <div class="step-header order-header">
-          <span class="step-number order-icon order-icon-${successClass}">
-            ${isSuccess ? '✓' : '✗'}
-          </span>
-          <div class="order-product-info">
-            <h3 class="order-product-name">${order.productName}</h3>
-            <p class="order-product-id">Order #${order.tradeNo.substring(0, 16)}...</p>
+      <div class="rich-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h3>${order.productName}</h3>
+            <span class="card-subtitle">ID: ${order.tradeNo}</span>
           </div>
+          <span class="status-badge-glow ${statusClass}">${statusText}</span>
         </div>
         
-        <div class="order-amount-box order-amount-box-${successClass}">
-          <div class="order-amount-label">Transaction Amount</div>
-          <div class="order-amount-value order-amount-${successClass}">$${order.tradeAmt}</div>
-        </div>
-        
-        <div class="order-details-grid">
-          <div class="order-detail-box">
-            <div class="order-detail-label">Status</div>
-            <div class="order-detail-value order-detail-value-${successClass}">${order.status}</div>
+        <div class="card-body-grid">
+          <div class="info-group">
+            <span class="info-label">Amount</span>
+            <span class="info-value highlight">$${order.tradeAmt}</span>
           </div>
-          
-          <div class="order-detail-box">
-            <div class="order-detail-label">Payment Method</div>
-            <div class="order-detail-value">${order.paymentMethod || 'Credit Card'}</div>
+          <div class="info-group">
+            <span class="info-label">Date</span>
+            <span class="info-value">${date}</span>
           </div>
-        </div>
-        
-        <div class="payment-summary">
-          <div class="row">
-            <span class="label order-label-with-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              Transaction Time
+          <div class="info-group">
+            <span class="info-label">Payment Method</span>
+            <span class="info-value">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+              ${order.paymentMethod || 'Credit Card'}
             </span>
-            <span class="value">${date} ${time}</span>
           </div>
           ${order.tradeSeq ? `
-          <div class="row">
-            <span class="label order-label-with-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-              </svg>
-              Receipt No.
-            </span>
-            <span class="value order-receipt-value">${order.tradeSeq}</span>
+          <div class="info-group">
+            <span class="info-label">Receipt No.</span>
+            <span class="info-value">${order.tradeSeq}</span>
           </div>
           ` : ''}
+        </div>
+        
+        <div class="card-actions">
+          <button class="btn-outline" onclick="alert('Invoice download feature coming soon!')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download Invoice
+          </button>
         </div>
       </div>
     `;
   }).join("");
+  
+  html += `</div>`; // Close grid
 
   container.innerHTML = html;
 }
