@@ -461,6 +461,8 @@ export class GoogleSheetsOrderDatabase {
             email: email,
             tradeSeq: row[COLUMN_INDICES.tradeSeq],
             completedAt: row[COLUMN_INDICES.completedAt],
+            paymentMethod: row[COLUMN_INDICES.paymentMethod] || "信用卡",
+            periodTradeNo: row[COLUMN_INDICES.periodTradeNo] || "",
           });
         }
       }

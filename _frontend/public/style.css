@@ -972,3 +972,253 @@ body.fail .summary-title {
   margin: 0;
   font-weight: 500;
 }
+
+/* Subscriptions & Orders HTML Specific Styles */
+.footer-links-container {
+  margin-top: auto;
+}
+
+.form-wrapper-wide {
+  max-width: 700px;
+}
+
+.login-prompt,
+.subscriptions-container,
+.loading-state,
+.empty-state {
+  display: none;
+}
+
+.loading-text {
+  text-align: center;
+}
+
+.empty-state {
+  text-align: center;
+}
+
+.empty-state-header {
+  justify-content: center;
+}
+
+.browse-products-btn {
+  text-decoration: none;
+  margin-top: 20px;
+}
+
+.cancel-message {
+  color: #64748B;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-confirm-cancel {
+  flex: 1;
+  max-width: 200px;
+  background: #DC2626;
+}
+
+.btn-keep-subscription {
+  flex: 1;
+  max-width: 200px;
+  background: #E2E8F0;
+  color: #334155;
+}
+
+/* Subscription Card Styles (Reused for Orders) */
+.subscription-card {
+  margin-bottom: 24px;
+}
+
+.subscription-card.inactive {
+  opacity: 0.7;
+}
+
+.subscription-summary {
+  background: #EFF6FF;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid var(--brand-primary);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+}
+
+.summary-row .label {
+  color: #64748B;
+}
+
+.summary-row .value {
+  font-weight: 500;
+  color: #1E293B;
+}
+
+.cancellation-notice {
+  color: #DC2626;
+  font-size: 0.9em;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+/* Order Card Styles */
+.order-card {
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.order-status-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 8px 16px;
+  border-bottom-left-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.order-status-badge-success {
+  background: #D1FAE5;
+  color: #10B981;
+}
+
+.order-status-badge-failed {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.order-header {
+  padding-top: 12px;
+}
+
+.order-icon {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.order-icon-success {
+  background: #10B981;
+}
+
+.order-icon-failed {
+  background: #EF4444;
+}
+
+.order-product-info {
+  flex: 1;
+}
+
+.order-product-name {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+}
+
+.order-product-id {
+  margin: 0;
+  font-size: 13px;
+  color: #64748B;
+  font-family: monospace;
+}
+
+.order-amount-box {
+  padding: 20px;
+  margin: 16px 0;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.order-amount-box-success {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  border: 1px solid #A7F3D0;
+}
+
+.order-amount-box-failed {
+  background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+  border: 1px solid #FECACA;
+}
+
+.order-amount-label {
+  font-size: 14px;
+  color: #64748B;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.order-amount-value {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.order-amount-success {
+  color: #10B981;
+}
+
+.order-amount-failed {
+  color: #EF4444;
+}
+
+.order-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.order-detail-box {
+  background: #F8FAFC;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.order-detail-label {
+  font-size: 11px;
+  color: #94A3B8;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.order-detail-value {
+  font-size: 14px;
+  color: #1E293B;
+  font-weight: 600;
+}
+
+.order-detail-value-success {
+  color: #10B981;
+  font-weight: 700;
+}
+
+.order-detail-value-failed {
+  color: #EF4444;
+  font-weight: 700;
+}
+
+.order-label-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-receipt-value {
+  font-family: monospace;
+  font-size: 13px;
+}

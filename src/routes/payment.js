@@ -206,8 +206,8 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         MerTradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
         TradeSeq: queryData.tradeNo,
         Status: queryData.tradeStatusText,
-        PeriodTradeNo: parsedData.PeriodTradeNo || "", // 訂閱制的續期收款單號
-        PaymentMethod: queryData.paymentMethod || queryData.cardBankName || "信用卡", // 支付方式
+        PeriodTradeNo: parsedData.PeriodTradeNo || "",
+        PaymentMethod: queryData.paymentMethod || queryData.cardBankName || "信用卡",
         rawData: {
           ...parsedData,
           ...queryData,
@@ -231,10 +231,10 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       // 授予權益
       try {
         const db = getDatabase();
-        // 取得完整訂單資訊以獲取 Email 和 ProductID
         // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
         const searchTradeNo = isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo;
         const order = await db.getOrderByTradeNo(searchTradeNo);
+        
         if (order) {
           const product = products.find((p) => p.id === order.productID);
           const user = await db.findUserByEmail(order.email);
