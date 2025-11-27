@@ -1028,10 +1028,9 @@ export class GoogleSheetsOrderDatabase {
         requestBody: { values: [fullRow] },
       });
 
-      logger.info("訂閱取消成功", {
+      logger.debug("Google Sheets: 訂閱資料已更新為取消狀態", {
         userId,
         periodTradeNo,
-        productId: entitlement[COLUMN_INDICES_ENTITLEMENTS.productId],
       });
 
       return {

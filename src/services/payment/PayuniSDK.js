@@ -620,6 +620,131 @@ export class PayuniSDK {
       };
     }
   }
+
+  /**
+   * 修改續期收款狀態
+   * @param {Object} options
+   * @param {string} options.reviseTradeStatus - suspend、restart、end、reauth
+   * @param {string} options.periodTradeNo - 續期收款單號
+   * @param {string} [options.merTradeNo] - 商店訂單編號
+   * @param {number|string} [options.periodOrderNo] - 期數編號
+   * @returns {Promise<Object>}
+   */
+  async modifyPeriodStatus({ reviseTradeStatus, periodTradeNo, merTradeNo, periodOrderNo }) {
+    try {
+      if (!reviseTradeStatus) {
+        throw new Error("缺少 reviseTradeStatus 參數");
+      }
+
+      if (!periodTradeNo) {
+        throw new Error("缺少 periodTradeNo 參數");
+      }
+
+      logger.info("準備修改續期收款狀態", {
+        reviseTradeStatus,
+        periodTradeNo,
+        merTradeNo,
+        periodOrderNo,
+      });
+
+      const requestBodyData = {
+        MerID: this.merchantId,
+        ReviseTradeStatus: reviseTradeStatus,
+        PeriodTradeNo: periodTradeNo,
+      };
+
+      if (merTradeNo) {
+        requestBodyData.MerTradeNo = merTradeNo;
+      }
+
+      if (periodOrderNo !== undefined && periodOrderNo !== null && periodOrderNo !== "") {
+        requestBodyData.PeriodOrderNo = Number(periodOrderNo);
+      }
+
+      const plaintext = querystring.stringify(requestBodyData);
+      const encryptInfo = this._encrypt(plaintext);
+      const hashInfo = this._hash(encryptInfo);
+
+      const requestPayload = {
+        MerID: this.merchantId,
+        Version: "1.0",
+        EncryptInfo: encryptInfo,
+        HashInfo: hashInfo,
+      };
+
+      const response = await axios.post(`${this.apiUrl}/api/period/mdfStatus`, requestPayload, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "payuni-sdk",
+        },
+        timeout: 10000,
+      });
+
+      logger.info("續期狀態修改 API 回應", {
+        periodTradeNo,
+        status: response.data?.Status,
+      });
+
+      let resultData = null;
+
+      if (response.data.EncryptInfo) {
+        const calculatedHash = this._hash(response.data.EncryptInfo);
+        if (calculatedHash !== response.data.HashInfo) {
+          logger.warn("修改狀態結果 Hash 驗證失敗", { periodTradeNo });
+          return {
+            success: false,
+            error: "修改狀態結果驗證失敗",
+            hashMismatch: true,
+          };
+        }
+
+        const decryptedStr = this._decrypt(response.data.EncryptInfo);
+        resultData = querystring.parse(decryptedStr);
+      } else {
+        // PayUNi may return plaintext Status without EncryptInfo
+        resultData = {
+          Status: response.data.Status,
+          Message: response.data.Message,
+          MerID: response.data.MerID,
+        };
+        if (response.data.MerTradeNo) resultData.MerTradeNo = response.data.MerTradeNo;
+        if (response.data.PeriodTradeNo) resultData.PeriodTradeNo = response.data.PeriodTradeNo;
+      }
+      // 檢查解密後的狀態碼
+      if (!resultData.Status || resultData.Status !== "SUCCESS") {
+        logger.warn("修改續期狀態失敗", {
+          periodTradeNo,
+          status: resultData.Status,
+          message: resultData.Message,
+        });
+        return {
+          success: false,
+          error: resultData.Message || "修改續期狀態失敗",
+          status: resultData.Status,
+        };
+      }
+
+      logger.info("續期狀態修改成功", {
+        periodTradeNo,
+        result: resultData,
+      });
+
+      return {
+        success: true,
+        message: resultData.Message || "續期狀態修改成功",
+        data: resultData,
+      };
+    } catch (error) {
+      logger.error("修改續期狀態異常", {
+        periodTradeNo,
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 // 導出單例工廠

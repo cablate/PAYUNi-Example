@@ -5,6 +5,7 @@
 let currentUser = null;
 let subscriptions = [];
 let cancelTarget = null;
+let csrfToken = "";
 
 /**
  * 檢查登入狀態
@@ -211,6 +212,9 @@ async function confirmCancel() {
       `/api/subscriptions/${cancelTarget.periodTradeNo}/cancel`,
       {
         method: "POST",
+        headers: {
+          "X-CSRF-Token": csrfToken,
+        },
       }
     );
 
@@ -274,6 +278,11 @@ async function init() {
   loadingModal.classList.add("show");
 
   try {
+    const tokenRes = await fetch("/csrf-token");
+    if (tokenRes.ok) {
+      const data = await tokenRes.json();
+      csrfToken = data.csrfToken;
+    }
     const isLoggedIn = await checkLoginStatus();
 
     if (!isLoggedIn) {

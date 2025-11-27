@@ -44,6 +44,34 @@ const products = [
     }
   },
   {
+    id: "plan_monthly_trial",
+    type: "subscription",
+    name: "月訂方案（前 7 天免費）",
+    price: 1990,
+    period: "/月",
+    description: "月費方案，首期 7 天免費試用，提供成長中團隊彈性體驗。",
+    features: [
+      "首 7 天免扣款，之後每月自動收費",
+      "含所有專業功能",
+      "彈性取消與續訂",
+      "專屬客服支援"
+    ],
+    recommended: false,
+    trial: {
+      days: 7,
+      amount: 0,
+      description: "首期 7 天無須付款，系統會在第 8 天扣取正式月費。"
+    },
+    periodConfig: {
+      periodType: "month",
+      periodDate: "1",
+      periodTimes: 12,
+      fType: "job",
+      fAmt: null,
+      firstChargeDelayDays: 7
+    }
+  },
+  {
     id: "plan_enterprise",
     type: "subscription",
     name: "企業方案",
