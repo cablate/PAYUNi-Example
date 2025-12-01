@@ -27,6 +27,6 @@ export const PaymentErrors = {
   ServerError: (message = '伺服器處理失敗', context = {}) => 
     new PaymentError(500, message, context),
   
-  TurnstileVerificationFailed: () => 
-    new PaymentError(400, 'Turnstile verification failed'),
+  TurnstileVerificationFailed: () =>
+    new PaymentError(400, 'Turnstile 驗證失敗'),
 };

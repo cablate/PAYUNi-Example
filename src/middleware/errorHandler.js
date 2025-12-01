@@ -28,7 +28,7 @@ export function errorHandler(err, req, res, next) {
 
   // 處理 express-validator 錯誤
   if (err.array && typeof err.array === 'function') {
-    logger.warn("Validation error", { errors: err.array() });
+    logger.warn("驗證錯誤", { errors: err.array() });
     return res.status(400).json({
       error: "輸入資料不正確",
       details: err.array().map(e => e.msg),
@@ -36,7 +36,7 @@ export function errorHandler(err, req, res, next) {
   }
 
   // 未預期的錯誤
-  logger.error("Unexpected error", {
+  logger.error("未預期的錯誤", {
     message: err.message,
     stack: err.stack,
     path: req.path,

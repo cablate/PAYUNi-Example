@@ -58,7 +58,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
 
       // 5. 生成支付資料
       const paymentData = generatePaymentData(tradeNo, product, userEmail, PAYUNI_CONFIG.RETURN_URL);
-      logger.info("Payment created successfully", { tradeNo, amount: product.price });
+      logger.info("支付訂單建立成功", { 訂單編號: tradeNo, 金額: product.price });
       
       return res.json(paymentData);
     } catch (error) {
@@ -112,11 +112,11 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       // 5. 生成訂閱支付資料
       const periodPaymentData = generatePeriodPaymentData(tradeNo, product, userEmail, PAYUNI_CONFIG.RETURN_URL);
       
-      logger.info("Subscription payment created successfully", {
-        tradeNo,
-        amount: product.price,
-        periodType: product.periodConfig?.periodType,
-        periodTimes: product.periodConfig?.periodTimes,
+      logger.info("訂閱支付建立成功", {
+        訂單編號: tradeNo,
+        金額: product.price,
+        週期類型: product.periodConfig?.periodType,
+        週期次數: product.periodConfig?.periodTimes,
       });
 
       return res.json(periodPaymentData);
@@ -130,18 +130,18 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
    */
   router.post("/payuni-webhook", async (req, res) => {
     try {
-      logger.info("Received Payuni webhook notification");
+      logger.info("接收 Payuni webhook 通知");
 
       const { EncryptInfo, HashInfo, Status } = req.body;
 
       if (Status !== "SUCCESS") {
-        logger.warn("Payment status is not SUCCESS", { status: Status });
+        logger.warn("支付狀態不是 SUCCESS", { 狀態: Status });
       }
 
       // 驗證 Hash (直接使用 SDK)
       const sdk = getPayuniSDK();
       if (!sdk.verifyWebhookData(EncryptInfo, HashInfo)) {
-        logger.warn("Webhook Hash verification failed");
+        logger.warn("Webhook 雜湊驗證失敗");
         return res.send("FAIL");
       }
 
@@ -153,11 +153,11 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       const isPeriod = parsedData.PeriodAmt > 0 || parsedData.PeriodTradeNo;
 
       if (!tradeNo) {
-        logger.warn("Missing MerTradeNo in webhook data");
+        logger.warn("Webhook 資料缺少商戶訂單編號");
         return res.send("FAIL");
       }
 
-      logger.info("Webhook verified", { tradeNo, tradeSeq, payStatus });
+      logger.info("Webhook 驗證通過", { 訂單編號: tradeNo, 訂單序號: tradeSeq, 支付狀態: payStatus });
 
       // 二次確認：向 Payuni API 查詢訂單狀態
       let queryResult = null;
