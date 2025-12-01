@@ -9,6 +9,7 @@ dotenv.config();
 
 /**
  * 伺服器配置
+ * 監聽埠號、執行環境、網域名稱
  */
 export const SERVER_CONFIG = {
   PORT: 80,
@@ -17,7 +18,8 @@ export const SERVER_CONFIG = {
 };
 
 /**
- * PAYUNi 配置
+ * PAYUNi 金流配置
+ * 支付閘道的 API 端點、商家認證、簽章密鑰
  */
 export const PAYUNI_CONFIG = {
   API_URL: process.env.PAYUNI_API_URL,
@@ -28,7 +30,8 @@ export const PAYUNI_CONFIG = {
 };
 
 /**
- * Turnstile 驗證配置
+ * 防機器人驗證配置
+ * Cloudflare Turnstile CAPTCHA 設定
  */
 export const TURNSTILE_CONFIG = {
   ENABLE: process.env.TURNSTILE_ENABLE === "true",
@@ -37,7 +40,8 @@ export const TURNSTILE_CONFIG = {
 };
 
 /**
- * Google OAuth 配置
+ * Google OAuth 認證配置
+ * Google OAuth 2.0 設定
  */
 export const GOOGLE_CONFIG = {
   CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
@@ -47,6 +51,7 @@ export const GOOGLE_CONFIG = {
 
 /**
  * Google Sheets API 配置
+ * Google 試算表資料庫設定
  */
 export const GOOGLE_SHEETS_CONFIG = {
   SHEETS_ID: process.env.GOOGLE_SHEETS_ID,
@@ -61,7 +66,8 @@ export const EXTERNAL_SERVICES = {
 };
 
 /**
- * Session 配置
+ * 工作階段配置
+ * Session 與 Cookie 的設定
  */
 export const SESSION_CONFIG = {
   SECRET: process.env.SESSION_SECRET,
@@ -70,7 +76,8 @@ export const SESSION_CONFIG = {
 };
 
 /**
- * Rate Limiting 配置
+ * 流量限制配置
+ * Rate Limiting 的限制規則，防止濫用
  */
 export const RATE_LIMIT_CONFIG = {
   GENERAL: {
@@ -125,6 +132,7 @@ export const REQUIRED_ENV_VARS = [
 ];
 
 /**
- * 一次性權杖過期時間（毫秒）
+ * 一次性權杖過期時間
+ * 單位：毫秒（目前設定為 5 分鐘）
  */
-export const ONE_TIME_TOKEN_EXPIRY = 300000; // 5 minutes
+export const ONE_TIME_TOKEN_EXPIRY = 300000; // 5 分鐘
