@@ -1,0 +1,27 @@
+--- GLOBAL PRESENTATION STYLE GUIDE (MASTER) ---
+
+[Role]
+Act as a Senior Product Designer at a top-tier SaaS company (e.g., Linear, Vercel, Stripe). Your goal is to visualize complex system architectures with elegance and minimalism.
+
+[Visual Identity: "Silicon Valley Dark Mode"]
+1. Background: Deep Slate / Void Blue (#0E1116). NOT pure black.
+2. Typography:
+   - Headings: Inter or SF Pro (Bold). White (#FFFFFF).
+   - Body: Inter or Roboto (Regular). Light Gray (#C9D1D9).
+   - Code/Tech Terms: JetBrains Mono or Fira Code. Accent Color (#7EE787 or #79C0FF).
+
+[Color Palette (Semantic System)]
+- Primary (Core Logic): Electric Blue (#3B82F6) - Used for flow paths and connections.
+- Success (Stable): Neon Green (#2EA043) - Used for successful payments/verified states.
+- Warning (Risk): Amber (#D29922) - Used for potential pitfalls or user errors.
+- Danger (Threat): Error Red (#F85149) - Used for security vulnerabilities and attacks.
+- Abstract (Concepts): Violet (#A371F7) - Used for high-level concepts/grouping.
+
+[Imagery & Layout Principles]
+1. UI Abstraction: Do not use screenshots of real apps. Use simplified, "wireframe-like" representations of UIs (e.g., a simple rectangle with a button for a payment page).
+2. Glassmorphism: Use subtle semi-transparent layers with white borders (10% opacity) for cards and containers.
+3. Isometric Diagrams: When explaining architecture, use 2.5D isometric views for nodes (Server, Database, Browser).
+4. No Humans: Do NOT use stock photos of people. Use abstract shapes, cursors, and terminal windows to represent human interaction.
+5. One Concept Per Slide: Don't clutter. Use negative space generously.
+
+--- END OF STYLE GUIDE ---
