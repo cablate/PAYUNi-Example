@@ -6,6 +6,17 @@
 import logger from "../utils/logger.js";
 
 export class WebhookHandler {
+  /**
+   * 初始化 Webhook 處理器
+   *
+   * @param {PayuniSDK} payuniSDK - PayuniSDK 實例，用於驗證和解析 webhook 資料
+   * @param {Database} database - 資料庫實例，用於查詢和更新訂單、權益
+   * @param {Array<Object>} products - 商品清單，用於查詢商品資訊
+   *
+   * @example
+   * const handler = new WebhookHandler(sdk, db, products);
+   * const result = await handler.processWebhook(webhookBody);
+   */
   constructor(payuniSDK, database, products) {
     this.sdk = payuniSDK;
     this.db = database;
@@ -14,8 +25,40 @@ export class WebhookHandler {
 
   /**
    * 處理 Payuni webhook 通知
+   *
+   * 主要流程：
+   * 1. 驗證 webhook 資料（簽章、訂單編號）
+   * 2. 查詢 Payuni API 確認支付狀態（以 API 為準，不信任 webhook 資料）
+   * 3. 驗證金額一致性
+   * 4. 更新訂單狀態（根據 API 查詢結果）
+   * 5. 授予使用者權益（非關鍵，失敗不阻擋回應）
+   * 6. 記錄訂閱扣款（如果是訂閱制）
+   *
+   * 此方法實現了「強驗證」策略：即使 webhook 資料看起來正確，
+   * 仍會主動調用 API 查詢以確保資料真實性。
+   *
+   * @async
    * @param {Object} webhookData - Webhook 請求主體
-   * @returns {Promise<Object>} { success: boolean, message: string, data?: any }
+   * @param {string} webhookData.EncryptInfo - Payuni 加密的交易資料
+   * @param {string} webhookData.HashInfo - 雜湊簽章
+   * @param {string} webhookData.Status - 交易狀態（SUCCESS 或其他）
+   * @returns {Promise<Object>} 處理結果
+   * @returns {boolean} 返回.success - 是否成功
+   * @returns {string} 返回.message - 結果訊息
+   * @returns {Object} [返回.data] - 成功時的資料（訂單號、狀態、金額）
+   *
+   * @throws 不會拋出異常，所有錯誤都會被捕捉並返回 success: false
+   *
+   * @example
+   * const result = await handler.processWebhook({
+   *   EncryptInfo: "...",
+   *   HashInfo: "...",
+   *   Status: "SUCCESS"
+   * });
+   *
+   * if (result.success) {
+   *   console.log(`訂單 ${result.data.tradeNo} 已處理`);
+   * }
    */
   async processWebhook(webhookData) {
     try {

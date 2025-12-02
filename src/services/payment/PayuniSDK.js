@@ -794,7 +794,28 @@ export class PayuniSDK {
   }
 }
 
-// 導出單例工廠
+/**
+ * 建立 PayuniSDK 實例的工廠函數
+ *
+ * @param {Object} config - 配置物件
+ * @param {string} config.merchantId - 商家ID（從環境變數 PAYUNI_MERCHANT_ID）
+ * @param {string} config.hashKey - Hash 密鑰（從環境變數 PAYUNI_HASH_KEY）
+ * @param {string} config.hashIV - Hash IV（從環境變數 PAYUNI_HASH_IV）
+ * @param {string} config.apiUrl - PayUNi API URL（從環境變數 PAYUNI_API_URL）
+ * @param {string} [config.notifyUrl] - Webhook 通知 URL（可選）
+ * @returns {PayuniSDK} PayuniSDK 實例
+ * @throws {Error} 若配置不完整
+ *
+ * @example
+ * const config = {
+ *   merchantId: process.env.PAYUNI_MERCHANT_ID,
+ *   hashKey: process.env.PAYUNI_HASH_KEY,
+ *   hashIV: process.env.PAYUNI_HASH_IV,
+ *   apiUrl: process.env.PAYUNI_API_URL,
+ *   notifyUrl: 'https://example.com/api/payuni-webhook'
+ * };
+ * const sdk = createPayuniSDK(config);
+ */
 export function createPayuniSDK(config) {
   return new PayuniSDK(config);
 }

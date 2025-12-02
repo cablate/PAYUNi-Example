@@ -1,7 +1,36 @@
 /**
- * 自定義錯誤類別 - 用於支付相關錯誤處理
+ * 自定義支付錯誤類別
+ *
+ * 用於表示支付流程中發生的錯誤。包含 HTTP 狀態碼和額外的上下文資訊。
+ * 此錯誤類別應與 Express 的錯誤處理中間件配合使用。
+ *
+ * @extends Error
+ *
+ * @example
+ * throw new PaymentError(
+ *   400,
+ *   '請求參數錯誤',
+ *   { productId: 'invalid_id' }
+ * );
  */
 export class PaymentError extends Error {
+  /**
+   * 建立 PaymentError 實例
+   *
+   * @param {number} statusCode - HTTP 狀態碼（如 400、401、404、500）
+   * @param {string} message - 錯誤訊息，用於向使用者顯示
+   * @param {Object} [context={}] - 額外的上下文資訊，用於日誌記錄
+   *
+   * @example
+   * const error = new PaymentError(
+   *   404,
+   *   '找不到該商品',
+   *   { productId: 'prod_123' }
+   * );
+   * // error.statusCode === 404
+   * // error.message === '找不到該商品'
+   * // error.context === { productId: 'prod_123' }
+   */
   constructor(statusCode, message, context = {}) {
     super(message);
     this.name = 'PaymentError';
@@ -12,7 +41,21 @@ export class PaymentError extends Error {
 }
 
 /**
- * 常見錯誤快捷方式 - 所有訊息使用繁體中文
+ * 常見支付錯誤的快捷方式集合
+ *
+ * 提供預定義的錯誤建立器，用於在支付流程中快速拋出結構化的錯誤。
+ * 所有錯誤訊息都使用繁體中文，便於使用者理解。
+ *
+ * @namespace PaymentErrors
+ *
+ * @example
+ * // 使用錯誤快捷方式
+ * if (!user) {
+ *   throw PaymentErrors.Unauthorized();
+ * }
+ * if (!product) {
+ *   throw PaymentErrors.ProductNotFound(productId);
+ * }
  */
 export const PaymentErrors = {
   /**
