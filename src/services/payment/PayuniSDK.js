@@ -69,14 +69,8 @@ export class PayuniSDK {
         UsrMailFix: 1,
       };
 
-      // 轉換為查詢字串
-      const plaintext = querystring.stringify(tradeData);
-
-      // 加密
-      const encryptInfo = this._encrypt(plaintext);
-
-      // 生成 Hash
-      const hashInfo = this._hash(encryptInfo);
+      // 使用共用方法生成加密和 Hash
+      const { encryptInfo, hashInfo } = this._encryptAndHash(tradeData);
 
       logger.info("支付資訊已生成", {
         tradeNo,
@@ -96,7 +90,7 @@ export class PayuniSDK {
     } catch (error) {
       logger.error("生成支付資訊失敗", {
         tradeNo,
-        error: error.message,
+        errorMessage: error.message,
       });
       throw error;
     }
@@ -113,7 +107,7 @@ export class PayuniSDK {
   generatePeriodPaymentInfo(tradeNo, product, userEmail, returnUrl) {
     try {
       const { periodConfig } = product;
-      
+
       if (!periodConfig) {
         throw new Error("商品缺少 periodConfig 配置");
       }
@@ -139,14 +133,8 @@ export class PayuniSDK {
         periodData.FAmt = periodConfig.fAmt;
       }
 
-      // 轉換為查詢字串
-      const plaintext = querystring.stringify(periodData);
-
-      //加密
-      const encryptInfo = this._encrypt(plaintext);
-
-      // 生成 Hash
-      const hashInfo = this._hash(encryptInfo);
+      // 使用共用方法生成加密和 Hash
+      const { encryptInfo, hashInfo } = this._encryptAndHash(periodData);
 
       logger.info("續期收款資訊已生成", {
         tradeNo,
@@ -167,7 +155,7 @@ export class PayuniSDK {
     } catch (error) {
       logger.error("生成續期收款資訊失敗", {
         tradeNo,
-        error: error.message,
+        errorMessage: error.message,
       });
       throw error;
     }
@@ -403,7 +391,7 @@ export class PayuniSDK {
       // 使用提取出的結果解析
       return this._parseTradeResult(result);
     } catch (error) {
-      logger.error("解析 Payuni 結果失敗", { error: error.message });
+      logger.error("解析 Payuni 結果失敗", { errorMessage: error.message });
       return null;
     }
   }
@@ -461,6 +449,65 @@ export class PayuniSDK {
   // ========================================
 
   /**
+   * 加密和生成 Hash 的共用方法
+   * @private
+   * @param {Object} dataObject - 要加密的資料物件
+   * @returns {Object} { encryptInfo, hashInfo }
+   */
+  _encryptAndHash(dataObject) {
+    try {
+      const plaintext = querystring.stringify(dataObject);
+      const encryptInfo = this._encrypt(plaintext);
+      const hashInfo = this._hash(encryptInfo);
+      return { encryptInfo, hashInfo };
+    } catch (error) {
+      logger.error("加密和雜湊失敗", { errorMessage: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * 發送 API 請求的共用方法
+   * @private
+   * @param {string} endpoint - API 端點
+   * @param {Object} requestData - 請求資料
+   * @returns {Promise<Object>} API 回應
+   */
+  async _sendApiRequest(endpoint, requestData) {
+    try {
+      const response = await axios.post(`${this.apiUrl}${endpoint}`, requestData, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "payuni-sdk",
+        },
+        timeout: 10000,
+      });
+      return response.data;
+    } catch (error) {
+      logger.error("API 請求失敗", {
+        endpoint,
+        errorMessage: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 驗證 API 回應的 Hash
+   * @private
+   * @param {Object} responseData - 回應資料
+   * @returns {boolean} 驗證是否成功
+   */
+  _verifyResponseHash(responseData) {
+    if (!responseData?.EncryptInfo || !responseData?.HashInfo) {
+      return true; // 沒有加密資料時不驗證
+    }
+
+    const calculatedHash = this._hash(responseData.EncryptInfo);
+    return calculatedHash === responseData.HashInfo;
+  }
+
+  /**
    * 加密資料
    * @private
    * @param {string} plaintext - 明文
@@ -472,7 +519,7 @@ export class PayuniSDK {
       const encryptedData = encrypt(plaintext, this.hashKey, merIv);
       return encryptedData;
     } catch (error) {
-      logger.error("加密失敗", { error: error.message });
+      logger.error("加密失敗", { errorMessage: error.message });
       throw error;
     }
   }
@@ -489,7 +536,7 @@ export class PayuniSDK {
       const decryptedData = decrypt(encryptedText, this.hashKey, merIv);
       return decryptedData;
     } catch (error) {
-      logger.error("解密失敗", { error: error.message });
+      logger.error("解密失敗", { errorMessage: error.message });
       throw error;
     }
   }
@@ -506,7 +553,7 @@ export class PayuniSDK {
       const hashValue = sha256(encryptedText, this.hashKey, merIv);
       return hashValue;
     } catch (error) {
-      logger.error("Hash 計算失敗", { error: error.message });
+      logger.error("Hash 計算失敗", { errorMessage: error.message });
       throw error;
     }
   }
