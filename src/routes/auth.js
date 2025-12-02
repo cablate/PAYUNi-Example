@@ -46,7 +46,7 @@ export function createAuthRoutes(oauth2Client) {
     try {
       const { code } = req.query;
       if (!code) {
-        logger.error("Missing authorization code in callback");
+        logger.error("Google 回調缺少授權碼");
         return sendSecureError(res, 400, "Google 登入失敗：缺少授權碼");
       }
 
@@ -92,15 +92,15 @@ export function createAuthRoutes(oauth2Client) {
 
       req.session.save((err) => {
         if (err) {
-          logger.error("Session save failed", { error: err.message, sessionID: req.sessionID });
+          logger.error("Session 儲存失敗", { errorMessage: err.message, sessionID: req.sessionID });
           return sendSecureError(res, 500, "Session 儲存失敗", { message: err.message });
         }
-        logger.info("User logged in successfully and session saved", { userId: payload.sub, email: payload.email });
+        logger.info("使用者登入成功並儲存 Session", { userId: payload.sub, email: payload.email });
         res.redirect("/");
       });
     } catch (error) {
-      logger.error("Google auth callback error", {
-        message: error.message,
+      logger.error("Google 認證回調失敗", {
+        errorMessage: error.message,
         stack: error.stack,
       });
       sendSecureError(res, 500, "Google 登入驗證過程中發生錯誤", { message: error.message });
@@ -122,7 +122,7 @@ export function createAuthRoutes(oauth2Client) {
         
         res.json({ loggedIn: true, user: req.session.user });
       } catch (error) {
-        logger.error("Failed to fetch entitlements in /api/me", { error: error.message });
+        logger.error("取得使用者權益失敗", { errorMessage: error.message });
         // 即使查詢失敗，也回傳基本使用者資訊（但沒有權益）
         res.json({ loggedIn: true, user: { ...req.session.user, entitlements: [] } });
       }
@@ -135,15 +135,15 @@ export function createAuthRoutes(oauth2Client) {
    * 登出路由
    */
   router.get("/auth/logout", (req, res) => {
-    logger.info("Logout requested", { sessionID: req.sessionID, hasUser: !!req.session?.user });
+    logger.info("登出請求", { sessionID: req.sessionID, hasUser: !!req.session?.user });
 
     req.session.destroy((err) => {
       if (err) {
-        logger.error("Logout error", { error: err.message });
+        logger.error("登出錯誤", { errorMessage: err.message });
         return sendSecureError(res, 500, "登出時發生錯誤");
       }
       res.clearCookie("sessionId");
-      logger.info("User logged out successfully");
+      logger.info("使用者登出成功");
       res.redirect("/");
     });
   });

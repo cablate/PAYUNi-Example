@@ -54,7 +54,7 @@ export function createOrderRoutes(oneTimeTokens) {
 
     if (resultData) {
       oneTimeTokens.delete(token);
-      logger.info("使用 token 檢索訂單結果", { 訂單編號: resultData.tradeNo });
+      logger.info("使用 token 檢索訂單結果", { tradeNo: resultData.tradeNo });
       res.json(resultData);
     } else {
       logger.warn("接收到無效或過期的 token", { token });

@@ -8,7 +8,8 @@ import logger from "../utils/logger.js";
 export function errorHandler(err, req, res, next) {
   // 處理自定義支付錯誤
   if (err instanceof PaymentError) {
-    logger.error(err.message, {
+    logger.error("支付錯誤", {
+      errorMessage: err.message,
       statusCode: err.statusCode,
       context: err.context,
       path: req.path,
@@ -28,7 +29,7 @@ export function errorHandler(err, req, res, next) {
 
   // 處理 express-validator 錯誤
   if (err.array && typeof err.array === 'function') {
-    logger.warn("驗證錯誤", { errors: err.array() });
+    logger.warn("驗證錯誤", { validationErrors: err.array() });
     return res.status(400).json({
       error: "輸入資料不正確",
       details: err.array().map(e => e.msg),
@@ -37,7 +38,7 @@ export function errorHandler(err, req, res, next) {
 
   // 未預期的錯誤
   logger.error("未預期的錯誤", {
-    message: err.message,
+    errorMessage: err.message,
     stack: err.stack,
     path: req.path,
   });

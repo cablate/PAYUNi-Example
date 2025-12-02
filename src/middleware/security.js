@@ -49,7 +49,7 @@ export function configureCors(app) {
       ) {
         callback(null, true);
       } else {
-        logger.warn("CORS blocked request", { origin, allowedOrigins: CORS_ALLOWED_ORIGINS });
+        logger.warn("CORS 請求被拒絕", { origin, allowedOrigins: CORS_ALLOWED_ORIGINS });
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -119,7 +119,7 @@ export function configureCsrfProtection(app) {
   // CSRF 錯誤處理中間件
   const csrfErrorHandler = (err, req, res, next) => {
     if (err.code === "EBADCSRFTOKEN") {
-      logger.warn("CSRF token validation failed", {
+      logger.warn("CSRF token 驗證失敗", {
         path: req.path,
         method: req.method,
         ip: req.ip,
@@ -156,11 +156,11 @@ export function configureRequestLogger(app) {
         };
 
         if (res.statusCode >= 500) {
-          logger.error(`${req.method} ${req.path}`, logData);
+          logger.error(`伺服器錯誤：${req.method} ${req.path}`, logData);
         } else if (res.statusCode >= 400) {
-          logger.warn(`${req.method} ${req.path}`, logData);
+          logger.warn(`客戶端錯誤：${req.method} ${req.path}`, logData);
         } else {
-          logger.info(`${req.method} ${req.path}`, logData);
+          logger.info(`請求成功：${req.method} ${req.path}`, logData);
         }
       }
     });
