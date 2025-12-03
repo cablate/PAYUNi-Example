@@ -67,6 +67,7 @@ export class PayuniSDK {
         Timestamp: timestamp,
         UsrMail: userEmail,
         UsrMailFix: 1,
+        Credit: 1
       };
 
       // 使用共用方法生成加密和 Hash
