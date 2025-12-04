@@ -5,11 +5,11 @@ import { getDatabase } from "../services/database/provider.js";
 import {
   createOrder,
   findExistingOrder,
-} from "../services/order-service.js";
+} from "../services/business/order-service.js";
 import { getPayuniSDK } from "../services/payment/provider.js";
 import { createPayuniGateway } from "../services/payment/payuni-gateway.js";
-import { createWebhookHandler } from "../services/webhook-handler.js";
-import { createWebhookProcessor } from "../services/webhook-processor.js";
+import { createWebhookHandler } from "../services/orchestration/webhook-handler.js";
+import { createWebhookProcessor } from "../services/business/webhook-processor.js";
 import { PaymentErrors } from "../utils/errors.js";
 import logger from "../utils/logger.js";
 import {

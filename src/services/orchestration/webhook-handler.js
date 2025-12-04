@@ -18,7 +18,7 @@
  *   const result = await handler.processWebhook(webhookBody);
  */
 
-import logger from "../utils/logger.js";
+import logger from "../../utils/logger.js";
 
 export class WebhookHandler {
   /**
