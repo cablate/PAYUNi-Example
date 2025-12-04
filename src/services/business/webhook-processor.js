@@ -18,6 +18,7 @@
  */
 
 import logger from "../../utils/logger.js";
+import { PaymentErrors } from "../../utils/errors.js";
 
 export class WebhookProcessor {
   /**
@@ -319,7 +320,9 @@ export class WebhookProcessor {
 
   /**
    * 授予使用者權益
+   *
    * @private
+   * @throws {PaymentError} 訂單不存在、商品不存在、使用者不存在時拋異常
    */
   async _grantEntitlements(tradeNo, isPeriod, parsedData, queryData) {
     // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
@@ -336,29 +339,26 @@ export class WebhookProcessor {
     // 查詢訂單
     const order = await this.db.getOrderByTradeNo(searchTradeNo);
     if (!order) {
-      logger.warn("無法授予權益：找不到訂單", {
+      throw PaymentErrors.NotFound('找不到訂單', {
+        tradeNo: searchTradeNo,
         originalTradeNo: tradeNo,
-        searchTradeNo,
       });
-      return;
     }
 
     // 查詢商品
     const product = this.products.find((p) => p.id === order.productID);
     if (!product) {
-      logger.warn("無法授予權益：找不到商品", {
+      throw PaymentErrors.NotFound('找不到商品', {
         productId: order.productID,
       });
-      return;
     }
 
     // 查詢使用者
     const user = await this.db.findUserByEmail(order.email);
     if (!user) {
-      logger.warn("無法授予權益：找不到使用者", {
+      throw PaymentErrors.NotFound('找不到使用者', {
         email: order.email,
       });
-      return;
     }
 
     // 授予權益
