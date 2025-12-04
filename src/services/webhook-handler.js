@@ -1,6 +1,21 @@
 /**
  * Webhook 處理服務
- * 處理 Payuni webhook 通知，驗證、更新訂單和授予權益
+ *
+ * 職責：
+ * - 驗證 Webhook 資料的完整性（Hash 驗證）
+ * - 解析加密的 Webhook 資料
+ * - 查詢金流商 API 確認支付狀態
+ * - 協調業務邏輯處理（委派給 WebhookProcessor）
+ *
+ * 設計理念：
+ * - 這是「金流驗證層」+ 「流程協調層」
+ * - 只負責金流相關的驗證和解析，不處理業務邏輯
+ * - 業務邏輯（更新訂單、授予權益）由 WebhookProcessor 處理
+ * - 遵循「單一職責原則」，職責清晰
+ *
+ * 使用範例：
+ *   const handler = new WebhookHandler(gateway, processor);
+ *   const result = await handler.processWebhook(webhookBody);
  */
 
 import logger from "../utils/logger.js";
@@ -9,32 +24,37 @@ export class WebhookHandler {
   /**
    * 初始化 Webhook 處理器
    *
-   * @param {PayuniSDK} payuniSDK - PayuniSDK 實例，用於驗證和解析 webhook 資料
-   * @param {Database} database - 資料庫實例，用於查詢和更新訂單、權益
-   * @param {Array<Object>} products - 商品清單，用於查詢商品資訊
+   * @param {PayuniGateway} paymentGateway - 金流閘道實例（用於驗證、解析、查詢）
+   * @param {WebhookProcessor} webhookProcessor - 業務處理器實例（用於處理業務邏輯）
    *
    * @example
-   * const handler = new WebhookHandler(sdk, db, products);
+   * const handler = new WebhookHandler(gateway, processor);
    * const result = await handler.processWebhook(webhookBody);
    */
-  constructor(payuniSDK, database, products) {
-    this.sdk = payuniSDK;
-    this.db = database;
-    this.products = products;
+  constructor(paymentGateway, webhookProcessor) {
+    if (!paymentGateway) {
+      throw new Error("WebhookHandler 需要 paymentGateway 實例");
+    }
+    if (!webhookProcessor) {
+      throw new Error("WebhookHandler 需要 webhookProcessor 實例");
+    }
+
+    this.gateway = paymentGateway;
+    this.processor = webhookProcessor;
+
+    logger.info("WebhookHandler 已初始化");
   }
 
   /**
-   * 處理 Payuni webhook 通知
+   * 處理 Payuni Webhook 通知
    *
    * 主要流程：
-   * 1. 驗證 webhook 資料（簽章、訂單編號）
-   * 2. 查詢 Payuni API 確認支付狀態（以 API 為準，不信任 webhook 資料）
-   * 3. 驗證金額一致性
-   * 4. 更新訂單狀態（根據 API 查詢結果）
-   * 5. 授予使用者權益（非關鍵，失敗不阻擋回應）
-   * 6. 記錄訂閱扣款（如果是訂閱制）
+   * 1. 驗證 Webhook 資料（簽章驗證）
+   * 2. 解析加密資料
+   * 3. 查詢 Payuni API 確認支付狀態（以 API 為準，不信任 Webhook）
+   * 4. 委派給 WebhookProcessor 處理業務邏輯
    *
-   * 此方法實現了「強驗證」策略：即使 webhook 資料看起來正確，
+   * 此方法實現了「強驗證」策略：即使 Webhook 資料看起來正確，
    * 仍會主動調用 API 查詢以確保資料真實性。
    *
    * @async
@@ -62,21 +82,19 @@ export class WebhookHandler {
    */
   async processWebhook(webhookData) {
     try {
-      // Step 1: 驗證 webhook 資料
-      const validationResult = await this._validateWebhookData(webhookData);
+      logger.info("接收 Webhook 通知", {
+        status: webhookData.Status,
+      });
+
+      // 步驟 1: 驗證 Webhook 資料
+      const validationResult = this._validateWebhookData(webhookData);
       if (!validationResult.success) {
         return validationResult;
       }
 
-      const {
-        parsedData,
-        tradeNo,
-        tradeSeq,
-        payStatus,
-        isPeriod,
-      } = validationResult.data;
+      const { parsedData, tradeNo } = validationResult.data;
 
-      // Step 2: 查詢訂單狀態
+      // 步驟 2: 查詢金流商 API 確認狀態（不信任 Webhook，以 API 為準）
       const queryResult = await this._queryOrderStatus(tradeNo);
       if (!queryResult.success) {
         return queryResult;
@@ -84,53 +102,32 @@ export class WebhookHandler {
 
       const queryData = queryResult.data;
 
-      // Step 3: 驗證金額一致性
-      const amountValidation = await this._validateAmount(
-        parsedData,
-        queryData,
-        tradeNo
-      );
-      if (!amountValidation.success) {
-        return amountValidation;
-      }
-
-      // Step 4: 更新訂單
-      const updateData = this._buildUpdateData(
-        tradeNo,
-        isPeriod,
-        parsedData,
-        queryData
-      );
-
-      const updateSuccess = await this.db.updateOrder(updateData);
-      if (!updateSuccess) {
-        logger.error("❌ 更新訂單失敗", { tradeNo });
-        return { success: false, message: "更新訂單失敗" };
-      }
-
-      logger.info("✓ Webhook 處理成功（以 API 查詢資料為準）", {
+      logger.info("✓ Webhook 驗證和查詢完成，準備處理業務邏輯", {
         tradeNo,
         status: queryData.tradeStatusText,
         amount: queryData.amount,
         isPaid: queryData.isPaid,
-        verified: true,
       });
 
-      // Step 5: 授予權益（非關鍵，失敗不阻擋 webhook 回應）
-      try {
-        await this._grantEntitlements(
+      // 步驟 3: 委派給 WebhookProcessor 處理業務邏輯
+      const processResult = await this.processor.processPayment(
+        parsedData,
+        queryData
+      );
+
+      if (!processResult.success) {
+        logger.error("業務邏輯處理失敗", {
           tradeNo,
-          isPeriod,
-          parsedData,
-          queryData
-        );
-      } catch (entitlementError) {
-        logger.error("授予權益時發生錯誤", {
-          tradeNo,
-          errorMessage: entitlementError.message,
+          error: processResult.message,
         });
-        // 不阻擋 webhook 回應，因為訂單已更新成功
+        return processResult;
       }
+
+      logger.info("✓ Webhook 處理完成", {
+        tradeNo,
+        status: queryData.tradeStatusText,
+        amount: queryData.amount,
+      });
 
       return {
         success: true,
@@ -150,13 +147,17 @@ export class WebhookHandler {
     }
   }
 
+  // ========================================
+  // 私有方法 - 驗證與解析
+  // ========================================
+
   /**
-   * 驗證 webhook 資料
+   * 驗證和解析 Webhook 資料
    * @private
    * @param {Object} webhookData - Webhook 資料
-   * @returns {Promise<Object>} 驗證結果
+   * @returns {Object} 驗證結果
    */
-  async _validateWebhookData(webhookData) {
+  _validateWebhookData(webhookData) {
     const { EncryptInfo, HashInfo, Status } = webhookData;
 
     // 檢查支付狀態
@@ -164,32 +165,41 @@ export class WebhookHandler {
       logger.warn("支付狀態不是 SUCCESS", { status: Status });
     }
 
-    // 驗證 Hash
-    if (!this.sdk.verifyWebhookData(EncryptInfo, HashInfo)) {
-      logger.warn("Webhook 雜湊驗證失敗");
+    // 驗證 Hash（使用 Gateway）
+    if (!this.gateway.verifyWebhook(webhookData)) {
+      logger.warn("❌ Webhook 雜湊驗證失敗");
       return {
         success: false,
         message: "Webhook 雜湊驗證失敗",
       };
     }
 
-    // 解密資料
-    const parsedData = this.sdk.parseWebhookData(EncryptInfo);
+    // 解密資料（使用 Gateway）
+    let parsedData;
+    try {
+      parsedData = this.gateway.parseWebhook(webhookData);
+    } catch (error) {
+      logger.error("❌ 解析 Webhook 資料失敗", { error: error.message });
+      return {
+        success: false,
+        message: "解析 Webhook 資料失敗",
+      };
+    }
+
     const tradeNo = parsedData.MerTradeNo;
     const tradeSeq = parsedData.TradeNo;
     const payStatus = parsedData.Status || "已完成";
-    const isPeriod = parsedData.PeriodAmt > 0 || parsedData.PeriodTradeNo;
 
     // 檢查訂單編號
     if (!tradeNo) {
-      logger.warn("Webhook 資料缺少商戶訂單編號");
+      logger.warn("❌ Webhook 資料缺少商戶訂單編號");
       return {
         success: false,
         message: "Webhook 資料缺少商戶訂單編號",
       };
     }
 
-    logger.info("Webhook 驗證通過", {
+    logger.info("✓ Webhook 驗證和解析通過", {
       tradeNo,
       tradeSeq,
       payStatus,
@@ -202,23 +212,25 @@ export class WebhookHandler {
         tradeNo,
         tradeSeq,
         payStatus,
-        isPeriod,
       },
     };
   }
 
   /**
-   * 查詢訂單狀態
+   * 查詢訂單狀態（主動確認支付）
    * @private
    * @param {string} tradeNo - 商戶訂單編號
    * @returns {Promise<Object>} 查詢結果
    */
   async _queryOrderStatus(tradeNo) {
     try {
-      const queryResult = await this.sdk.queryTradeStatus(tradeNo);
+      logger.info("正在查詢金流商 API 確認訂單狀態", { tradeNo });
+
+      // 使用 Gateway 查詢
+      const queryResult = await this.gateway.queryOrderStatus(tradeNo);
 
       if (!queryResult.success) {
-        logger.error("❌ 查詢訂單失敗，放棄更新", {
+        logger.error("❌ 查詢訂單失敗，放棄處理", {
           tradeNo,
           error: queryResult.error,
         });
@@ -228,7 +240,7 @@ export class WebhookHandler {
         };
       }
 
-      logger.info("✓ API 查詢成功", {
+      logger.info("✓ API 查詢成功（以此為準）", {
         tradeNo,
         amount: queryResult.data.amount,
         status: queryResult.data.tradeStatusText,
@@ -240,7 +252,7 @@ export class WebhookHandler {
         data: queryResult.data,
       };
     } catch (queryError) {
-      logger.error("⚠️ 查詢訂單異常，放棄更新", {
+      logger.error("⚠️ 查詢訂單異常，放棄處理", {
         tradeNo,
         error: queryError.message,
       });
@@ -250,143 +262,26 @@ export class WebhookHandler {
       };
     }
   }
-
-  /**
-   * 驗證金額一致性
-   * @private
-   * @param {Object} parsedData - 解析後的 webhook 資料
-   * @param {Object} queryData - 查詢結果資料
-   * @param {string} tradeNo - 商戶訂單編號
-   * @returns {Promise<Object>} 驗證結果
-   */
-  async _validateAmount(parsedData, queryData, tradeNo) {
-    const webhookAmount = parseInt(parsedData.TradeAmt || parsedData.PeriodAmt);
-    const queryAmount = parseInt(queryData.amount);
-
-    if (queryAmount !== webhookAmount) {
-      logger.error("❌ webhook 回調金額不符，請注意", {
-        tradeNo,
-        webhookAmount,
-        queryAmount,
-      });
-      return {
-        success: false,
-        message: "金額驗證失敗",
-      };
-    }
-
-    return {
-      success: true,
-    };
-  }
-
-  /**
-   * 建立訂單更新資料
-   * @private
-   * @param {string} tradeNo - 原始訂單編號
-   * @param {boolean} isPeriod - 是否為訂閱制
-   * @param {Object} parsedData - 解析後的 webhook 資料
-   * @param {Object} queryData - 查詢結果資料
-   * @returns {Object} 更新資料
-   */
-  _buildUpdateData(tradeNo, isPeriod, parsedData, queryData) {
-    return {
-      MerTradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
-      TradeSeq: queryData.tradeNo,
-      Status: queryData.tradeStatusText,
-      PeriodTradeNo: parsedData.PeriodTradeNo || "",
-      PaymentMethod:
-        queryData.paymentMethod || queryData.cardBankName || "信用卡",
-      rawData: {
-        ...parsedData,
-        ...queryData,
-      },
-    };
-  }
-
-  /**
-   * 授予使用者權益
-   * @private
-   * @param {string} tradeNo - 原始訂單編號
-   * @param {boolean} isPeriod - 是否為訂閱制
-   * @param {Object} parsedData - 解析後的 webhook 資料
-   * @param {Object} queryData - 查詢結果資料
-   */
-  async _grantEntitlements(tradeNo, isPeriod, parsedData, queryData) {
-    // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
-    const searchTradeNo = isPeriod
-      ? `${tradeNo.split("_")[0]}_0`
-      : tradeNo;
-
-    const order = await this.db.getOrderByTradeNo(searchTradeNo);
-
-    if (!order) {
-      logger.warn("無法授予權益：找不到訂單", {
-        originalTradeNo: tradeNo,
-        searchTradeNo,
-      });
-      return;
-    }
-
-    const product = this.products.find((p) => p.id === order.productID);
-    const user = await this.db.findUserByEmail(order.email);
-
-    if (!product || !user) {
-      logger.warn("無法授予權益：找不到商品或使用者", {
-        productId: order.productID,
-        email: order.email,
-      });
-      return;
-    }
-
-    // 授予權益
-    await this.db.grantEntitlement(user.googleId, product, searchTradeNo);
-    logger.info("✓ 權益已授予", {
-      userId: user.googleId,
-      productId: product.id,
-    });
-
-    // 記錄訂閱扣款（如果是訂閱制）
-    if (isPeriod) {
-      await this._recordPeriodPayment(
-        tradeNo,
-        searchTradeNo,
-        parsedData,
-        queryData
-      );
-    }
-  }
-
-  /**
-   * 記錄訂閱扣款
-   * @private
-   * @param {string} tradeNo - 原始訂單編號
-   * @param {string} searchTradeNo - 搜尋訂單編號
-   * @param {Object} parsedData - 解析後的 webhook 資料
-   * @param {Object} queryData - 查詢結果資料
-   */
-  async _recordPeriodPayment(tradeNo, searchTradeNo, parsedData, queryData) {
-    const periodTradeNo = parsedData.PeriodTradeNo || "";
-    const sequenceMatch = tradeNo.match(/_(\d+)$/);
-    const sequenceNo = sequenceMatch ? parseInt(sequenceMatch[1]) : 0;
-
-    await this.db.recordPeriodPayment({
-      periodTradeNo: periodTradeNo,
-      baseOrderNo: searchTradeNo,
-      sequenceNo: sequenceNo,
-      tradeSeq: queryData.tradeNo,
-      amount: queryData.amount,
-      status: queryData.tradeStatusText,
-      paymentTime: queryData.paymentDay || new Date().toISOString(),
-      remark: JSON.stringify({
-        isPaid: queryData.isPaid,
-        message: queryData.message,
-      }),
-    });
-
-    logger.info("✓ 訂閱扣款已記錄", {
-      periodTradeNo,
-      sequenceNo,
-    });
-  }
 }
+
+/**
+ * 建立 WebhookHandler 實例的工廠函數
+ *
+ * @param {PayuniGateway} paymentGateway - 金流閘道實例
+ * @param {WebhookProcessor} webhookProcessor - 業務處理器實例
+ * @returns {WebhookHandler} WebhookHandler 實例
+ *
+ * @example
+ * import { createPayuniGateway } from './payment/payuni-gateway.js';
+ * import { createWebhookProcessor } from './webhook-processor.js';
+ * import { createWebhookHandler } from './webhook-handler.js';
+ *
+ * const gateway = createPayuniGateway(sdk);
+ * const processor = createWebhookProcessor(db, products);
+ * const handler = createWebhookHandler(gateway, processor);
+ */
+export function createWebhookHandler(paymentGateway, webhookProcessor) {
+  return new WebhookHandler(paymentGateway, webhookProcessor);
+}
+
+export default WebhookHandler;

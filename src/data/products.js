@@ -4,7 +4,7 @@ const products = [
     id: "plan_basic",
     type: "subscription",
     name: "基礎方案",
-    price: 990,
+    price: 9,
     period: "/月",
     description: "適合剛起步的個人創作者。",
     features: [
@@ -25,7 +25,7 @@ const products = [
     id: "plan_pro",
     type: "subscription",
     name: "專業方案",
-    price: 1990,
+    price: 19,
     period: "/月",
     description: "為專業人士與成長中團隊打造。",
     features: [
@@ -47,7 +47,7 @@ const products = [
     id: "plan_monthly_trial",
     type: "subscription",
     name: "月訂方案（前 7 天免費）",
-    price: 1990,
+    price: 19,
     period: "/月",
     description: "月費方案，首期 7 天免費試用，提供成長中團隊彈性體驗。",
     features: [
@@ -75,7 +75,7 @@ const products = [
     id: "plan_enterprise",
     type: "subscription",
     name: "企業方案",
-    price: 4990,
+    price: 49,
     period: "/月",
     description: "針對大型組織的客製化解決方案。",
     features: [
@@ -99,7 +99,7 @@ const products = [
     id: "course_fullstack",
     type: "one_time",
     name: "全端開發實戰課程",
-    price: 3500,
+    price: 35,
     period: null,
     description: "從零開始掌握 Node.js 與 React 開發。",
     features: [
@@ -115,7 +115,7 @@ const products = [
     id: "pack_starter",
     type: "one_time",
     name: "開發者新手禮包",
-    price: 1200,
+    price: 12,
     period: null,
     description: "包含常用的 UI 元件庫與開發工具設定檔。",
     features: [

@@ -5,12 +5,11 @@ import { getDatabase } from "../services/database/provider.js";
 import {
   createOrder,
   findExistingOrder,
-  generatePaymentData,
-  generatePeriodPaymentData,
-  updateOrder,
-} from "../services/index.js";
+} from "../services/order-service.js";
 import { getPayuniSDK } from "../services/payment/provider.js";
-import { WebhookHandler } from "../services/webhook-handler.js";
+import { createPayuniGateway } from "../services/payment/payuni-gateway.js";
+import { createWebhookHandler } from "../services/webhook-handler.js";
+import { createWebhookProcessor } from "../services/webhook-processor.js";
 import { PaymentErrors } from "../utils/errors.js";
 import logger from "../utils/logger.js";
 import {
@@ -98,7 +97,13 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       // 3. 查詢現有未完成訂單
       const existingOrder = await findExistingOrder(userEmail, product.id);
       if (existingOrder) {
-        const paymentData = generatePaymentData(existingOrder.tradeNo, product, userEmail, PAYUNI_CONFIG.RETURN_URL);
+        // 使用 Gateway 生成支付資料
+        const sdk = getPayuniSDK();
+        const gateway = createPayuniGateway(sdk);
+        const paymentData = gateway.createPayment(
+          { tradeNo: existingOrder.tradeNo, product, userEmail },
+          PAYUNI_CONFIG.RETURN_URL
+        );
         return res.json(paymentData);
       }
 
@@ -111,10 +116,15 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         throw PaymentErrors.ServerError("訂單建立失敗", { tradeNo });
       }
 
-      // 5. 生成支付資料
-      const paymentData = generatePaymentData(tradeNo, product, userEmail, PAYUNI_CONFIG.RETURN_URL);
+      // 5. 使用 Gateway 生成支付資料
+      const sdk = getPayuniSDK();
+      const gateway = createPayuniGateway(sdk);
+      const paymentData = gateway.createPayment(
+        { tradeNo, product, userEmail },
+        PAYUNI_CONFIG.RETURN_URL
+      );
       logger.info("支付訂單建立成功", { tradeNo, price: product.price });
-      
+
       return res.json(paymentData);
     } catch (error) {
       next(error);
@@ -187,7 +197,13 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       const existingOrder = await findExistingOrder(userEmail, product.id);
       if (existingOrder) {
         const tradeNo = existingOrder.tradeNo?.split("_")[0];
-        const paymentData = generatePaymentData(tradeNo, product, userEmail, PAYUNI_CONFIG.RETURN_URL);
+        // 使用 Gateway 生成訂閱支付資料
+        const sdk = getPayuniSDK();
+        const gateway = createPayuniGateway(sdk);
+        const paymentData = gateway.createSubscription(
+          { tradeNo, product, userEmail },
+          PAYUNI_CONFIG.RETURN_URL
+        );
         return res.json(paymentData);
       }
 
@@ -207,9 +223,14 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         throw PaymentErrors.ServerError("訂單建立失敗", { tradeNo });
       }
 
-      // 5. 生成訂閱支付資料
-      const periodPaymentData = generatePeriodPaymentData(tradeNo, product, userEmail, PAYUNI_CONFIG.RETURN_URL);
-      
+      // 6. 使用 Gateway 生成訂閱支付資料
+      const sdk = getPayuniSDK();
+      const gateway = createPayuniGateway(sdk);
+      const periodPaymentData = gateway.createSubscription(
+        { tradeNo, product, userEmail },
+        PAYUNI_CONFIG.RETURN_URL
+      );
+
       logger.info("訂閱支付建立成功", {
         tradeNo,
         price: product.price,
@@ -263,13 +284,15 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
     try {
       logger.info("接收 Payuni webhook 通知");
 
-      // 初始化 webhook 處理器
+      // 初始化依賴
       const sdk = getPayuniSDK();
+      const gateway = createPayuniGateway(sdk);
       const db = getDatabase();
-      const webhookHandler = new WebhookHandler(sdk, db, products);
+      const processor = createWebhookProcessor(db, products);
+      const handler = createWebhookHandler(gateway, processor);
 
       // 處理 webhook
-      const result = await webhookHandler.processWebhook(req.body);
+      const result = await handler.processWebhook(req.body);
 
       if (result.success) {
         res.send("OK");
@@ -327,15 +350,17 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       logger.info("接收 Payuni 返回請求");
       const { EncryptInfo, HashInfo, Status } = req.body;
 
-      // 驗證 Hash
+      // 驗證和解析（使用 Gateway）
       const sdk = getPayuniSDK();
-      if (!sdk.verifyWebhookData(EncryptInfo, HashInfo)) {
+      const gateway = createPayuniGateway(sdk);
+
+      if (!gateway.verifyWebhook(req.body)) {
         logger.warn("返回 URL 雜湊驗證失敗");
         return res.redirect("/result.html?status=fail&reason=invalid_hash");
       }
 
       // 解密資料
-      const decryptedData = sdk.parseWebhookData(EncryptInfo);
+      const decryptedData = gateway.parseWebhook(req.body);
 
       const resultData = {
         status: decryptedData.Status === "SUCCESS" ? "success" : "fail",
