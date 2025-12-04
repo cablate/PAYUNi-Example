@@ -2,7 +2,7 @@ import fs from "fs";
 import { google } from "googleapis";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import logger from "../../utils/logger.js";
+import logger from "../../utils/logger";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,7 +14,7 @@ const __dirname = dirname(__filename);
 /**
  * 從金鑰文件創建 JWT 認證
  */
-function getAuthClient() {
+function getAuthClient(): any {
   const keyFile = process.env.GOOGLE_SHEETS_KEY_FILE || path.join(__dirname, "../../../google-key.json");
 
   if (!fs.existsSync(keyFile)) {
@@ -38,7 +38,7 @@ function getAuthClient() {
     });
 
     return auth;
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Google Sheets 認證失敗", { error: error.message });
     throw error;
   }
@@ -47,7 +47,7 @@ function getAuthClient() {
 /**
  * 取得 Sheets API 客戶端
  */
-function getSheetsClient() {
+function getSheetsClient(): any {
   const auth = getAuthClient();
   return google.sheets({ version: "v4", auth });
 }
@@ -191,7 +191,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 初始化試算表（建立標題欄位）
    */
-  async initialize() {
+  async initialize(): Promise<boolean> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -202,7 +202,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       // 檢查工作表是否存在
       const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-      const existingSheet = spreadsheet.data.sheets?.find((s) => s.properties.title === SHEET_NAME);
+      const existingSheet = spreadsheet.data.sheets?.find((s: any) => s.properties.title === SHEET_NAME);
 
       if (!existingSheet) {
         // 建立新工作表
@@ -244,7 +244,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("試算表初始化成功", { spreadsheetId, sheetName: SHEET_NAME });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("試算表初始化失敗", { error: error.message });
       throw error;
     }
@@ -253,7 +253,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 查找現有的待支付訂單
    */
-  async findPendingOrder(userEmail, productID) {
+  async findPendingOrder(userEmail: string, productID: string): Promise<any | null> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -295,7 +295,7 @@ export class GoogleSheetsOrderDatabase {
       }
 
       return null;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("查詢訂單失敗", { error: error.message });
       return null;
     }
@@ -304,7 +304,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 建立新訂單
    */
-  async createOrder(orderData) {
+  async createOrder(orderData: any): Promise<boolean> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -346,7 +346,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("訂單建立成功", { tradeNo, email, merID, spreadsheetId });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("建立訂單失敗", { tradeNo: orderData.tradeNo, error: error.message });
       return false;
     }
@@ -355,7 +355,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 更新訂單狀態
    */
-  async updateOrder(updateData) {
+  async updateOrder(updateData: any): Promise<boolean> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -420,7 +420,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("訂單更新成功", { MerTradeNo, Status, spreadsheetId });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("更新訂單失敗", { MerTradeNo: updateData.MerTradeNo, error: error.message });
       return false;
     }
@@ -429,7 +429,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 查詢特定 Email 的所有訂單
    */
-  async getUserOrders(userEmail) {
+  async getUserOrders(userEmail: string): Promise<any[]> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -445,7 +445,7 @@ export class GoogleSheetsOrderDatabase {
       });
 
       const rows = response.data.values || [];
-      const userOrders = [];
+      const userOrders: any[] = [];
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -476,7 +476,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("查詢使用者訂單成功", { email: userEmail, count: userOrders.length });
       return userOrders;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("查詢使用者訂單失敗", { email: userEmail, error: error.message });
       return [];
     }
@@ -485,7 +485,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 取得所有訂單
    */
-  async getAllOrders() {
+  async getAllOrders(): Promise<any[]> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -501,7 +501,7 @@ export class GoogleSheetsOrderDatabase {
       });
 
       const rows = response.data.values || [];
-      const orders = [];
+      const orders: any[] = [];
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -522,7 +522,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("取得所有訂單成功", { count: orders.length });
       return orders;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("取得所有訂單失敗", { error: error.message });
       return [];
     }
@@ -531,7 +531,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 按訂單編號查詢單筆訂單
    */
-  async getOrderByTradeNo(tradeNo) {
+  async getOrderByTradeNo(tradeNo: string): Promise<any | null> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -570,7 +570,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("找不到訂單", { tradeNo });
       return null;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("查詢訂單失敗", { tradeNo, error: error.message });
       return null;
     }
@@ -579,7 +579,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 獲取訂單統計
    */
-  async getOrderStats() {
+  async getOrderStats(): Promise<Record<string, number>> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -595,7 +595,7 @@ export class GoogleSheetsOrderDatabase {
       });
 
       const rows = response.data.values || [];
-      const stats = { 待支付: 0, 已完成: 0, 已失敗: 0, 其他: 0 };
+      const stats: Record<string, number> = { 待支付: 0, 已完成: 0, 已失敗: 0, 其他: 0 };
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -610,7 +610,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("訂單統計成功", { stats });
       return stats;
-    } catch (error) {
+    } catch (error: any) {
       logger.warn("訂單統計失敗", { error: error.message });
       return { 待支付: 0, 已完成: 0, 已失敗: 0, 其他: 0 };
     }
@@ -618,10 +618,10 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 輔助方法：初始化單個工作表
    */
-  async _initializeSheet(sheets, spreadsheetId, sheetName, headers) {
+  async _initializeSheet(sheets: any, spreadsheetId: string, sheetName: string, headers: string[]): Promise<void> {
     try {
       const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-      const existingSheet = spreadsheet.data.sheets?.find((s) => s.properties.title === sheetName);
+      const existingSheet = spreadsheet.data.sheets?.find((s: any) => s.properties.title === sheetName);
 
       if (!existingSheet) {
         await sheets.spreadsheets.batchUpdate({
@@ -647,7 +647,7 @@ export class GoogleSheetsOrderDatabase {
         valueInputOption: "RAW",
         requestBody: { values: [headers] },
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.warn(`初始化工作表 ${sheetName} 失敗`, { error: error.message });
     }
   }
@@ -659,7 +659,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 查找使用者
    */
-  async findUser(googleId) {
+  async findUser(googleId: string): Promise<any | null> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -685,7 +685,7 @@ export class GoogleSheetsOrderDatabase {
         }
       }
       return null;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("查找使用者失敗", { error: error.message });
       return null;
     }
@@ -694,7 +694,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 查找使用者 (By Email)
    */
-  async findUserByEmail(email) {
+  async findUserByEmail(email: string): Promise<any | null> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -720,7 +720,7 @@ export class GoogleSheetsOrderDatabase {
         }
       }
       return null;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("查找使用者失敗", { error: error.message });
       return null;
     }
@@ -729,7 +729,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 建立使用者
    */
-  async createUser(userData) {
+  async createUser(userData: any): Promise<boolean> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -753,7 +753,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("使用者建立成功", { googleId: userData.id });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("建立使用者失敗", { error: error.message });
       return false;
     }
@@ -762,7 +762,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 更新使用者登入時間
    */
-  async updateUserLogin(googleId) {
+  async updateUserLogin(googleId: string): Promise<boolean> {
     const user = await this.findUser(googleId);
     if (!user) return false;
 
@@ -779,7 +779,7 @@ export class GoogleSheetsOrderDatabase {
         requestBody: { values: [[now]] },
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("更新登入時間失敗", { error: error.message });
       return false;
     }
@@ -792,7 +792,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 取得使用者權益
    */
-  async getUserEntitlements(userId) {
+  async getUserEntitlements(userId: string): Promise<any[]> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -803,7 +803,7 @@ export class GoogleSheetsOrderDatabase {
       });
 
       const rows = response.data.values || [];
-      const entitlements = [];
+      const entitlements: any[] = [];
       const now = new Date();
 
       for (let i = 1; i < rows.length; i++) {
@@ -840,7 +840,7 @@ export class GoogleSheetsOrderDatabase {
         }
       }
       return entitlements;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("取得權益失敗", { error: error.message });
       return [];
     }
@@ -849,7 +849,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 授予或延長權益
    */
-  async grantEntitlement(userId, product, orderId) {
+  async grantEntitlement(userId: string, product: any, orderId: string): Promise<boolean> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     const now = new Date();
@@ -863,11 +863,11 @@ export class GoogleSheetsOrderDatabase {
 
       const rows = response.data.values || [];
       let existingRowIndex = -1;
-      let existingEntitlement = null;
+      let existingEntitlement: any = null;
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (row[COLUMN_INDICES_ENTITLEMENTS.userId] === userId && 
+        if (row[COLUMN_INDICES_ENTITLEMENTS.userId] === userId &&
             row[COLUMN_INDICES_ENTITLEMENTS.productId] === product.id) {
           existingRowIndex = i + 1;
           existingEntitlement = row;
@@ -876,7 +876,7 @@ export class GoogleSheetsOrderDatabase {
       }
 
       // 計算新的到期日
-      let newExpiryDate = null;
+      let newExpiryDate: string | null = null;
       if (product.type === "subscription" && product.periodConfig) {
         let baseDate = new Date(now); // ← 建立新的 Date 物件
         // 如果現有權益未過期，從現有到期日開始延長
@@ -893,7 +893,7 @@ export class GoogleSheetsOrderDatabase {
       }
 
       // 計算下次扣款日 (NextBillingDate)
-      let nextBillingDate = null;
+      let nextBillingDate: string | null = null;
       if (product.type === "subscription" && newExpiryDate) {
         nextBillingDate = newExpiryDate; // 下次扣款日就是到期日
       }
@@ -913,17 +913,6 @@ export class GoogleSheetsOrderDatabase {
 
       if (existingRowIndex !== -1) {
         // 更新現有權益
-        const range = `${SHEET_ENTITLEMENTS}!E${existingRowIndex}:H${existingRowIndex}`;
-        const updates = [
-          "active", // Status
-          existingEntitlement[COLUMN_INDICES_ENTITLEMENTS.startDate], // StartDate 不變
-          newExpiryDate || "", // ExpiryDate
-          orderId // Update source order
-        ];
-        
-        // 這裡我們只更新 Status, Expiry, SourceOrder
-        // 注意：Google Sheets API update 需要對應欄位
-        // 為了簡單，我們更新整行
         const fullRow = [...existingEntitlement];
         fullRow[COLUMN_INDICES_ENTITLEMENTS.status] = "active";
         fullRow[COLUMN_INDICES_ENTITLEMENTS.expiryDate] = newExpiryDate || "";
@@ -970,7 +959,7 @@ export class GoogleSheetsOrderDatabase {
       }
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("授予權益失敗", { error: error.message });
       return false;
     }
@@ -981,7 +970,7 @@ export class GoogleSheetsOrderDatabase {
    * 更新 Entitlements 狀態：設定 cancelledAt, autoRenew=false
    * 但權益維持到 expiryDate
    */
-  async cancelSubscription(userId, periodTradeNo) {
+  async cancelSubscription(userId: string, periodTradeNo: string): Promise<any> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -994,11 +983,11 @@ export class GoogleSheetsOrderDatabase {
 
       const rows = response.data.values || [];
       let targetRowIndex = -1;
-      let entitlement = null;
+      let entitlement: any = null;
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (row[COLUMN_INDICES_ENTITLEMENTS.userId] === userId && 
+        if (row[COLUMN_INDICES_ENTITLEMENTS.userId] === userId &&
             row[COLUMN_INDICES_ENTITLEMENTS.periodTradeNo] === periodTradeNo &&
             row[COLUMN_INDICES_ENTITLEMENTS.status] === "active") {
           targetRowIndex = i + 1;
@@ -1040,7 +1029,7 @@ export class GoogleSheetsOrderDatabase {
           expiryDate: entitlement[COLUMN_INDICES_ENTITLEMENTS.expiryDate],
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("取消訂閱失敗", { error: error.message });
       return {
         success: false,
@@ -1056,7 +1045,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 記錄訂閱期數扣款
    */
-  async recordPeriodPayment(paymentData) {
+  async recordPeriodPayment(paymentData: any): Promise<boolean> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -1073,7 +1062,7 @@ export class GoogleSheetsOrderDatabase {
       } = paymentData;
 
       const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-      
+
       const row = [
         paymentId,
         periodTradeNo,
@@ -1095,7 +1084,7 @@ export class GoogleSheetsOrderDatabase {
 
       logger.info("訂閱扣款記錄成功", { periodTradeNo, sequenceNo, amount });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("記錄訂閱扣款失敗", { error: error.message });
       return false;
     }
@@ -1104,7 +1093,7 @@ export class GoogleSheetsOrderDatabase {
   /**
    * 取得訂閱的所有扣款記錄
    */
-  async getPeriodPayments(baseOrderNo) {
+  async getPeriodPayments(baseOrderNo: string): Promise<any[]> {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -1115,7 +1104,7 @@ export class GoogleSheetsOrderDatabase {
       });
 
       const rows = response.data.values || [];
-      const payments = [];
+      const payments: any[] = [];
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -1137,10 +1126,19 @@ export class GoogleSheetsOrderDatabase {
       // 按期數排序
       payments.sort((a, b) => a.sequenceNo - b.sequenceNo);
       return payments;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("取得訂閱扣款記錄失敗", { error: error.message });
       return [];
     }
+  }
+
+  /**
+   * 記錄失敗的權益授予（用於補償任務）
+   */
+  async recordFailedEntitlement(failureData: any): Promise<boolean> {
+    // 這裡可以實現記錄失敗任務的邏輯
+    logger.info("記錄權益授予失敗任務", failureData);
+    return true;
   }
 }
 

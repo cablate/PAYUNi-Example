@@ -1,13 +1,13 @@
 import winston from "winston";
 
 // 敏感欄位清單
-const sensitiveFields = ["CardNo", "CardCVC", "PAYUNI_HASH_KEY", "PAYUNI_HASH_IV", "password", "token", "secret", "key", "encryptInfo", "hashinfo", "EncryptInfo", "HashInfo"];
+const sensitiveFields: string[] = ["CardNo", "CardCVC", "PAYUNI_HASH_KEY", "PAYUNI_HASH_IV", "password", "token", "secret", "key", "encryptInfo", "hashinfo", "EncryptInfo", "HashInfo"];
 
 // 遞迴過濾敏感資訊
-function sanitizeLog(data) {
+function sanitizeLog(data: any): any {
   if (typeof data !== "object" || data === null) return data;
 
-  const sanitized = Array.isArray(data) ? [] : {};
+  const sanitized: any = Array.isArray(data) ? [] : {};
 
   for (const key in data) {
     if (sensitiveFields.some((field) => key.toLowerCase().includes(field.toLowerCase()))) {

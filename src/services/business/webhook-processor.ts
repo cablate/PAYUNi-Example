@@ -17,10 +17,60 @@
  *   await processor.processPayment(parsedData, queryData);
  */
 
-import logger from "../../utils/logger.js";
-import { PaymentErrors } from "../../utils/errors.js";
+import logger from "../../utils/logger";
+import { PaymentErrors } from "../../utils/errors";
+
+interface Database {
+  updateOrder(updateData: any): Promise<boolean>;
+  getOrderByTradeNo(tradeNo: string): Promise<any | null>;
+  findUserByEmail(email: string): Promise<any | null>;
+  grantEntitlement(userId: string, product: any, orderId: string): Promise<boolean>;
+  recordPeriodPayment(paymentData: any): Promise<boolean>;
+  recordFailedEntitlement(failureData: any): Promise<boolean>;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  type: string;
+  periodConfig?: {
+    periodType: string;
+    periodTimes: number;
+  };
+}
+
+interface ParsedData {
+  MerTradeNo: string;
+  TradeAmt?: number;
+  PeriodAmt?: number;
+  PeriodTradeNo?: string;
+}
+
+interface QueryData {
+  amount: number;
+  tradeStatusText: string;
+  tradeNo: string;
+  paymentMethod?: string;
+  cardBankName?: string;
+  isPaid: boolean;
+  paymentDay?: string;
+  message?: string;
+}
+
+interface ProcessResult {
+  success: boolean;
+  message: string;
+  data?: any;
+  errorCode?: string;
+  isRetryable?: boolean;
+  reason?: string;
+}
 
 export class WebhookProcessor {
+  private db: Database;
+  private products: Product[];
+
   /**
    * 初始化 Webhook 業務處理器
    *
@@ -30,7 +80,7 @@ export class WebhookProcessor {
    * @example
    * const processor = new WebhookProcessor(db, products);
    */
-  constructor(database, products) {
+  constructor(database: Database, products: Product[]) {
     if (!database) {
       throw new Error("WebhookProcessor 需要 database 實例");
     }
@@ -69,10 +119,10 @@ export class WebhookProcessor {
    *   console.log('處理成功');
    * }
    */
-  async processPayment(parsedData, queryData) {
+  async processPayment(parsedData: ParsedData, queryData: QueryData): Promise<ProcessResult> {
     try {
       const tradeNo = parsedData.MerTradeNo;
-      const isPeriod = parsedData.PeriodAmt > 0 || parsedData.PeriodTradeNo;
+      const isPeriod = (parsedData.PeriodAmt && parsedData.PeriodAmt > 0) || !!parsedData.PeriodTradeNo;
 
       logger.info("開始處理支付業務邏輯", {
         tradeNo,
@@ -131,7 +181,7 @@ export class WebhookProcessor {
           amount: queryData.amount,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("❌ 處理支付業務邏輯失敗", {
         errorMessage: error.message,
         errorCode: error.errorCode,
@@ -154,9 +204,9 @@ export class WebhookProcessor {
    * 驗證金額一致性
    * @private
    */
-  _validateAmount(parsedData, queryData, tradeNo) {
-    const webhookAmount = parseInt(parsedData.TradeAmt || parsedData.PeriodAmt);
-    const queryAmount = parseInt(queryData.amount);
+  private _validateAmount(parsedData: ParsedData, queryData: QueryData, tradeNo: string): ProcessResult {
+    const webhookAmount = parseInt(String(parsedData.TradeAmt || parsedData.PeriodAmt || 0));
+    const queryAmount = parseInt(String(queryData.amount));
 
     if (queryAmount !== webhookAmount) {
       logger.error("❌ Webhook 回調金額與查詢 API 不符", {
@@ -177,6 +227,7 @@ export class WebhookProcessor {
 
     return {
       success: true,
+      message: "金額驗證成功",
     };
   }
 
@@ -188,7 +239,12 @@ export class WebhookProcessor {
    * 更新訂單狀態
    * @private
    */
-  async _updateOrderStatus(tradeNo, isPeriod, parsedData, queryData) {
+  private async _updateOrderStatus(
+    tradeNo: string,
+    isPeriod: boolean,
+    parsedData: ParsedData,
+    queryData: QueryData
+  ): Promise<ProcessResult> {
     try {
       // 建立更新資料
       const updateData = this._buildUpdateData(
@@ -216,8 +272,9 @@ export class WebhookProcessor {
 
       return {
         success: true,
+        message: "訂單更新成功",
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("更新訂單異常", {
         tradeNo,
         error: error.message,
@@ -233,7 +290,12 @@ export class WebhookProcessor {
    * 建立訂單更新資料
    * @private
    */
-  _buildUpdateData(tradeNo, isPeriod, parsedData, queryData) {
+  private _buildUpdateData(
+    tradeNo: string,
+    isPeriod: boolean,
+    parsedData: ParsedData,
+    queryData: QueryData
+  ): any {
     return {
       MerTradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
       TradeSeq: queryData.tradeNo,
@@ -257,9 +319,14 @@ export class WebhookProcessor {
    * 失敗時會重試 3 次，最終失敗會記錄補償任務供後續修復
    * @private
    */
-  async _grantEntitlementsWithRetry(tradeNo, isPeriod, parsedData, queryData) {
+  private async _grantEntitlementsWithRetry(
+    tradeNo: string,
+    isPeriod: boolean,
+    parsedData: ParsedData,
+    queryData: QueryData
+  ): Promise<ProcessResult> {
     const MAX_RETRIES = 3;
-    let lastError;
+    let lastError: any;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -268,9 +335,10 @@ export class WebhookProcessor {
         logger.info(`✓ 權益授予成功（第 ${attempt} 次嘗試）`, { tradeNo });
         return {
           success: true,
+          message: '授予成功',
           reason: '授予成功',
         };
-      } catch (error) {
+      } catch (error: any) {
         lastError = error;
         logger.warn(
           `⚠️ 授予權益失敗（第 ${attempt}/${MAX_RETRIES} 次嘗試）`,
@@ -305,7 +373,7 @@ export class WebhookProcessor {
         attempt: MAX_RETRIES,
         timestamp: new Date().toISOString(),
       });
-    } catch (recordError) {
+    } catch (recordError: any) {
       logger.error("記錄補償任務失敗", {
         tradeNo,
         error: recordError.message,
@@ -314,6 +382,7 @@ export class WebhookProcessor {
 
     return {
       success: false,
+      message: `重試失敗`,
       reason: `重試 ${MAX_RETRIES} 次後仍失敗: ${lastError?.message}`,
     };
   }
@@ -324,7 +393,12 @@ export class WebhookProcessor {
    * @private
    * @throws {PaymentError} 訂單不存在、商品不存在、使用者不存在時拋異常
    */
-  async _grantEntitlements(tradeNo, isPeriod, parsedData, queryData) {
+  private async _grantEntitlements(
+    tradeNo: string,
+    isPeriod: boolean,
+    parsedData: ParsedData,
+    queryData: QueryData
+  ): Promise<void> {
     // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
     const searchTradeNo = isPeriod
       ? `${tradeNo.split("_")[0]}_0`
@@ -384,7 +458,12 @@ export class WebhookProcessor {
    * 記錄訂閱扣款
    * @private
    */
-  async _recordPeriodPayment(tradeNo, searchTradeNo, parsedData, queryData) {
+  private async _recordPeriodPayment(
+    tradeNo: string,
+    searchTradeNo: string,
+    parsedData: ParsedData,
+    queryData: QueryData
+  ): Promise<void> {
     try {
       const periodTradeNo = parsedData.PeriodTradeNo || "";
       const sequenceMatch = tradeNo.match(/_(\d+)$/);
@@ -409,7 +488,7 @@ export class WebhookProcessor {
         sequenceNo,
         amount: queryData.amount,
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error("記錄訂閱扣款失敗", {
         tradeNo,
         error: error.message,
@@ -422,7 +501,7 @@ export class WebhookProcessor {
    * 睡眠延遲（用於重試的指數退避）
    * @private
    */
-  _sleep(ms) {
+  private _sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
@@ -441,7 +520,7 @@ export class WebhookProcessor {
  * const db = getDatabase();
  * const processor = createWebhookProcessor(db, products);
  */
-export function createWebhookProcessor(database, products) {
+export function createWebhookProcessor(database: Database, products: Product[]): WebhookProcessor {
   return new WebhookProcessor(database, products);
 }
 

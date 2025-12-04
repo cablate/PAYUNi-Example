@@ -4,7 +4,7 @@ import figlet from "figlet";
 /**
  * 列印美化的啟動訊息
  */
-export function printStartupBanner() {
+export function printStartupBanner(): void {
   // 用分隔線而不是清除螢幕
   console.log("\n" + "=".repeat(60));
 
@@ -21,7 +21,7 @@ export function printStartupBanner() {
 /**
  * 列印環境變數配置
  */
-export function printEnvironmentConfig(config) {
+export function printEnvironmentConfig(config: Record<string, any>): void {
   console.log(chalk.yellow.bold("📋 環境變數配置：\n"));
 
   const configItems = [
@@ -44,7 +44,7 @@ export function printEnvironmentConfig(config) {
 /**
  * 列印成功訊息
  */
-export function printSuccess(port) {
+export function printSuccess(port: number): void {
   console.log(chalk.green.bold("\n✅ 伺服器啟動成功！\n"));
   console.log(chalk.bgGreen.black.bold(`  🚀 http://localhost:${port}  \n`));
   console.log(chalk.gray("等待連線...") + "\n");
@@ -53,7 +53,7 @@ export function printSuccess(port) {
 /**
  * 列印警告訊息
  */
-export function printWarning(message) {
+export function printWarning(message: string): void {
   console.log(chalk.yellow.bold("\n⚠️  警告：\n"));
   console.log(chalk.yellow(`  ${message}\n`));
 }
@@ -61,7 +61,7 @@ export function printWarning(message) {
 /**
  * 列印錯誤訊息
  */
-export function printError(message) {
+export function printError(message: string): void {
   console.error(chalk.red.bold("\n❌ 錯誤：\n"));
   console.error(chalk.red(`  ${message}\n`));
 }

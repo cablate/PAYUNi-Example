@@ -19,9 +19,32 @@
  *   const updated = await updateOrder(updateData);
  */
 
-import logger from "../../utils/logger.js";
-import { PaymentErrors } from "../../utils/errors.js";
-import { getDatabase } from "../database/provider.js";
+import logger from "../../utils/logger";
+import { PaymentErrors } from "../../utils/errors";
+import { getDatabase } from "../database/provider";
+
+interface OrderData {
+  tradeNo: string;
+  merID?: string;
+  MerID?: string;
+  tradeAmt?: number;
+  TradeAmt?: number;
+  email: string;
+  productID: string;
+  productName: string;
+  productType?: string;
+  userGoogleId?: string;
+  userName?: string;
+}
+
+interface UpdateData {
+  MerTradeNo: string;
+  TradeSeq?: string;
+  Status: string;
+  PeriodTradeNo?: string;
+  PaymentMethod?: string;
+  rawData?: any;
+}
 
 // ========================================
 // 訂單查詢
@@ -47,7 +70,7 @@ import { getDatabase } from "../database/provider.js";
  * 查詢現有的未完成訂單
  * @throws {PaymentError} 資料庫查詢失敗時拋出（可重試）
  */
-export async function findExistingOrder(userEmail, productID) {
+export async function findExistingOrder(userEmail: string, productID: string): Promise<any | null> {
   try {
     if (!userEmail || !productID) {
       logger.warn("查詢訂單缺少必要參數", { userEmail, productID });
@@ -68,7 +91,7 @@ export async function findExistingOrder(userEmail, productID) {
 
     logger.info("沒有找到現有訂單", { email: userEmail, productID });
     return null;
-  } catch (error) {
+  } catch (error: any) {
     logger.error("❌ 查詢現有訂單失敗", {
       email: userEmail,
       productID,
@@ -121,13 +144,11 @@ export async function findExistingOrder(userEmail, productID) {
  * 建立新訂單
  * @throws {PaymentError} 驗證失敗或資料庫錯誤時拋出
  */
-export async function createOrder(orderData) {
+export async function createOrder(orderData: OrderData): Promise<boolean> {
   try {
     // 驗證必要欄位
-    const requiredFields = [
+    const requiredFields: (keyof OrderData)[] = [
       "tradeNo",
-      "merID",
-      "tradeAmt",
       "email",
       "productID",
       "productName",
@@ -144,7 +165,7 @@ export async function createOrder(orderData) {
     }
 
     // 格式化訂單資料（確保欄位名稱一致）
-    const formattedData = {
+    const formattedData: any = {
       tradeNo: orderData.tradeNo,
       merID: orderData.merID || orderData.MerID,
       tradeAmt: orderData.tradeAmt || orderData.TradeAmt,
@@ -178,7 +199,7 @@ export async function createOrder(orderData) {
         tradeNo: formattedData.tradeNo,
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     // 如果已是 PaymentError，直接拋出
     if (error.name === 'PaymentError') {
       throw error;
@@ -228,7 +249,7 @@ export async function createOrder(orderData) {
  * 更新訂單狀態
  * @throws {PaymentError} 驗證失敗或資料庫錯誤時拋出
  */
-export async function updateOrder(updateData) {
+export async function updateOrder(updateData: UpdateData): Promise<boolean> {
   try {
     // 驗證必要欄位
     if (!updateData.MerTradeNo) {
@@ -258,7 +279,7 @@ export async function updateOrder(updateData) {
         tradeNo: updateData.MerTradeNo,
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     // 如果已是 PaymentError，直接拋出
     if (error.name === 'PaymentError') {
       throw error;
@@ -296,7 +317,7 @@ export async function updateOrder(updateData) {
  * 根據訂單編號查詢訂單
  * @throws {PaymentError} 資料庫查詢失敗時拋出（可重試）
  */
-export async function getOrderByTradeNo(tradeNo) {
+export async function getOrderByTradeNo(tradeNo: string): Promise<any | null> {
   try {
     if (!tradeNo) {
       logger.warn("查詢訂單缺少訂單編號");
@@ -313,7 +334,7 @@ export async function getOrderByTradeNo(tradeNo) {
 
     logger.warn("找不到訂單", { tradeNo });
     return null;
-  } catch (error) {
+  } catch (error: any) {
     logger.error("❌ 查詢訂單失敗", {
       tradeNo,
       error: error.message,

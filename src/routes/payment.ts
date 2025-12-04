@@ -1,24 +1,24 @@
 import crypto from "crypto";
-import { Router } from "express";
-import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants.js";
-import { getDatabase } from "../services/database/provider.js";
+import { Router, Request, Response, NextFunction } from "express";
+import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants";
+import { getDatabase } from "../services/database/provider";
 import {
   createOrder,
   findExistingOrder,
-} from "../services/business/order-service.js";
-import { getPayuniSDK } from "../services/payment/provider.js";
-import { createPayuniGateway } from "../services/payment/payuni-gateway.js";
-import { createWebhookHandler } from "../services/orchestration/webhook-handler.js";
-import { createWebhookProcessor } from "../services/business/webhook-processor.js";
-import { PaymentErrors } from "../utils/errors.js";
-import logger from "../utils/logger.js";
+} from "../services/business/order-service";
+import { getPayuniSDK } from "../services/payment/provider";
+import { createPayuniGateway } from "../services/payment/payuni-gateway";
+import { createWebhookHandler } from "../services/orchestration/webhook-handler";
+import { createWebhookProcessor } from "../services/business/webhook-processor";
+import { PaymentErrors } from "../utils/errors";
+import logger from "../utils/logger";
 import {
   buildOrderData,
   generateTradeNo,
   validatePaymentRequest,
-} from "../utils/payment-helpers.js";
-import { verifyTurnstile } from "../utils/turnstile.js";
-import { createPaymentValidation } from "../utils/validators.js";
+} from "../utils/payment-helpers";
+import { verifyTurnstile } from "../utils/turnstile";
+import { createPaymentValidation } from "../utils/validators";
 
 /**
  * 建立支付路由
@@ -38,7 +38,7 @@ import { createPaymentValidation } from "../utils/validators.js";
  * const paymentRoutes = createPaymentRoutes(limiter, tokenMap, products);
  * app.use('/api', paymentRoutes);
  */
-export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
+export function createPaymentRoutes(paymentLimiter: any, oneTimeTokens: Map<string, any>, products: any[]): Router {
   const router = Router();
 
   /**
@@ -83,7 +83,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
    *   }
    * }
    */
-  router.post("/create-payment", paymentLimiter, createPaymentValidation, async (req, res, next) => {
+  router.post("/create-payment", paymentLimiter, createPaymentValidation, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // 1. 驗證請求
       const { product, userEmail, turnstileToken } = validatePaymentRequest(req, products);
@@ -104,12 +104,13 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
           { tradeNo: existingOrder.tradeNo, product, userEmail },
           PAYUNI_CONFIG.RETURN_URL
         );
-        return res.json(paymentData);
+        res.json(paymentData);
+        return;
       }
 
       // 4. 生成新訂單
       const tradeNo = generateTradeNo();
-      const orderData = buildOrderData(tradeNo, product, userEmail, PAYUNI_CONFIG.MERCHANT_ID, req.session.user);
+      const orderData = buildOrderData(tradeNo, product, userEmail, PAYUNI_CONFIG.MERCHANT_ID!, req.session.user);
 
       const success = await createOrder(orderData);
       if (!success) {
@@ -125,7 +126,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       );
       logger.info("支付訂單建立成功", { tradeNo, price: product.price });
 
-      return res.json(paymentData);
+      res.json(paymentData);
     } catch (error) {
       next(error);
     }
@@ -177,7 +178,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
    *   }
    * }
    */
-  router.post("/create-subscription", paymentLimiter, createPaymentValidation, async (req, res, next) => {
+  router.post("/create-subscription", paymentLimiter, createPaymentValidation, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // 1. 驗證請求
       const { product, userEmail, turnstileToken } = validatePaymentRequest(req, products);
@@ -204,7 +205,8 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
           { tradeNo, product, userEmail },
           PAYUNI_CONFIG.RETURN_URL
         );
-        return res.json(paymentData);
+        res.json(paymentData);
+        return;
       }
 
       // 5. 生成新訂單
@@ -213,7 +215,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         `${tradeNo}_0`,
         product,
         userEmail,
-        PAYUNI_CONFIG.MERCHANT_ID,
+        PAYUNI_CONFIG.MERCHANT_ID!,
         req.session.user,
         "subscription"
       );
@@ -238,7 +240,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         periodTimes: product.periodConfig?.periodTimes,
       });
 
-      return res.json(periodPaymentData);
+      res.json(periodPaymentData);
     } catch (error) {
       next(error);
     }
@@ -280,7 +282,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
    * // 響應
    * OK  // 或 FAIL
    */
-  router.post("/payuni-webhook", async (req, res) => {
+  router.post("/payuni-webhook", async (req: Request, res: Response) => {
     try {
       logger.info("接收 Payuni webhook 通知");
 
@@ -299,7 +301,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
       } else {
         res.send("FAIL");
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Webhook 處理異常", { errorMessage: error.message });
       res.send("FAIL");
     }
@@ -345,7 +347,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
    * 302 Found
    * Location: /result.html?token=abc123def456...
    */
-  router.post("/payment-return", async (req, res) => {
+  router.post("/payment-return", async (req: Request, res: Response) => {
     try {
       logger.info("接收 Payuni 返回請求");
       const { EncryptInfo, HashInfo, Status } = req.body;
@@ -356,7 +358,8 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
 
       if (!gateway.verifyWebhook(req.body)) {
         logger.warn("返回 URL 雜湊驗證失敗");
-        return res.redirect("/result.html?status=fail&reason=invalid_hash");
+        res.redirect("/result.html?status=fail&reason=invalid_hash");
+        return;
       }
 
       // 解密資料
@@ -380,7 +383,7 @@ export function createPaymentRoutes(paymentLimiter, oneTimeTokens, products) {
         tradeNo: resultData.tradeNo,
       });
       res.redirect(`/result.html?token=${token}`);
-    } catch (error) {
+    } catch (error: any) {
       logger.error("返回 URL 處理異常", { errorMessage: error.message });
       res.redirect("/result.html?status=fail&reason=processing_error");
     }

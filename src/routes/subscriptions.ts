@@ -3,10 +3,10 @@
  * 提供訂閱查詢、取消等功能
  */
 
-import express from "express";
-import { getDatabase } from "../services/database/provider.js";
-import { getPayuniSDK } from "../services/payment/provider.js";
-import logger from "../utils/logger.js";
+import express, { Request, Response } from "express";
+import { getDatabase } from "../services/database/provider";
+import { getPayuniSDK } from "../services/payment/provider";
+import logger from "../utils/logger";
 
 const router = express.Router();
 
@@ -14,7 +14,7 @@ const router = express.Router();
  * GET /api/subscriptions
  * 查詢使用者所有訂閱
  */
-router.get("/", async (req, res) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     if (!req.session?.user) {
       return res.status(401).json({ error: "請先登入" });
@@ -25,16 +25,16 @@ router.get("/", async (req, res) => {
 
     // 取得所有權益（包含已取消的）
     const allEntitlements = await db.getUserEntitlements(userId);
-    
+
     // 只回傳訂閱類型
-    const subscriptions = allEntitlements.filter(e => e.type === "subscription");
+    const subscriptions = allEntitlements.filter((e: any) => e.type === "subscription");
 
     logger.info("查詢訂閱成功", { userId, count: subscriptions.length });
     return res.json({
       subscriptions,
       total: subscriptions.length,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("查詢訂閱失敗", { error: error.message });
     return res.status(500).json({ error: "查詢訂閱失敗" });
   }
@@ -44,7 +44,7 @@ router.get("/", async (req, res) => {
  * POST /api/subscriptions/:periodTradeNo/cancel
  * 取消訂閱
  */
-router.post("/:periodTradeNo/cancel", async (req, res) => {
+router.post("/:periodTradeNo/cancel", async (req: Request, res: Response) => {
   try {
     if (!req.session?.user) {
       return res.status(401).json({ error: "請先登入" });
@@ -64,7 +64,7 @@ router.post("/:periodTradeNo/cancel", async (req, res) => {
     // 1. 驗證 periodTradeNo 屬於該使用者
     const entitlements = await db.getUserEntitlements(userId);
     const subscription = entitlements.find(
-      e => e.periodTradeNo === periodTradeNo && e.type === "subscription"
+      (e: any) => e.periodTradeNo === periodTradeNo && e.type === "subscription"
     );
 
     if (!subscription) {
@@ -75,7 +75,7 @@ router.post("/:periodTradeNo/cancel", async (req, res) => {
     // 檢查是否已取消
     if (subscription.cancelledAt) {
       logger.warn("訂閱已被取消", { userId, periodTradeNo });
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "訂閱已被取消",
         expiryDate: subscription.expiryDate,
       });
@@ -132,7 +132,7 @@ router.post("/:periodTradeNo/cancel", async (req, res) => {
         note: "權益將維持到到期日",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("取消訂閱異常", {
       error: error.message,
       stack: error.stack,
@@ -145,7 +145,7 @@ router.post("/:periodTradeNo/cancel", async (req, res) => {
  * POST /api/subscriptions/:periodTradeNo/status
  * 更新續期收款狀態 (suspend/restart/end/reauth)
  */
-router.post("/:periodTradeNo/status", async (req, res) => {
+router.post("/:periodTradeNo/status", async (req: Request, res: Response) => {
   try {
     if (!req.session?.user) {
       return res.status(401).json({ error: "請先登入" });
@@ -169,7 +169,7 @@ router.post("/:periodTradeNo/status", async (req, res) => {
     const db = getDatabase();
     const entitlements = await db.getUserEntitlements(userId);
     const subscription = entitlements.find(
-      (e) => e.periodTradeNo === periodTradeNo && e.type === "subscription"
+      (e: any) => e.periodTradeNo === periodTradeNo && e.type === "subscription"
     );
 
     if (!subscription) {
@@ -209,7 +209,7 @@ router.post("/:periodTradeNo/status", async (req, res) => {
       message: modifyResult.message,
       data: modifyResult.data,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("訂閱狀態修改異常", {
       error: error.message,
       stack: error.stack,

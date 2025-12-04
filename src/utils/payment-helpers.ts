@@ -1,6 +1,27 @@
 import { validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
-import { PaymentErrors } from "./errors.js";
+import { PaymentErrors } from "./errors";
+import type { Request } from "express";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  [key: string]: any;
+}
+
+interface SessionUser {
+  id: string;
+  email: string;
+  name: string;
+  [key: string]: any;
+}
+
+type RequestWithSession = Request & {
+  session: {
+    user?: SessionUser;
+  };
+};
 
 /**
  * 驗證支付請求
@@ -35,7 +56,7 @@ import { PaymentErrors } from "./errors.js";
  *   // 處理驗證錯誤
  * }
  */
-export function validatePaymentRequest(req, products) {
+export function validatePaymentRequest(req: RequestWithSession, products: Product[]): any {
   // 1. 檢查登入狀態
   if (!req.session.user) {
     throw PaymentErrors.Unauthorized();
@@ -84,7 +105,7 @@ export function validatePaymentRequest(req, products) {
  * - 編號長度固定為 20 位
  * - 可用於 MerTradeNo（商家訂單編號）
  */
-export function generateTradeNo() {
+export function generateTradeNo(): string {
   return uuidv4().replace(/-/g, "").substring(0, 20);
 }
 
@@ -130,19 +151,45 @@ export function generateTradeNo() {
  * );
  * // 結果會被存入資料庫
  */
-export function buildOrderData(tradeNo, product, userEmail, merchantID, sessionUser, productType = null) {
-  return {
+interface OrderData {
+  tradeNo: string;
+  merID: string;
+  tradeAmt: number;
+  email: string;
+  productID: string;
+  productName: string;
+  productType?: string;
+  userGoogleId?: string;
+  userEmail?: string;
+  userName?: string;
+}
+
+export function buildOrderData(
+  tradeNo: string,
+  product: Product,
+  userEmail: string,
+  merchantID: string,
+  sessionUser?: SessionUser,
+  productType: string | null = null
+): OrderData {
+  const baseData: OrderData = {
     tradeNo,
     merID: merchantID,
     tradeAmt: product.price,
     email: userEmail,
     productID: product.id,
     productName: product.name,
-    ...(productType && { productType }),
-    ...(sessionUser && {
-      userGoogleId: sessionUser.id,
-      userEmail: sessionUser.email,
-      userName: sessionUser.name,
-    }),
   };
+
+  if (productType) {
+    baseData.productType = productType;
+  }
+
+  if (sessionUser) {
+    baseData.userGoogleId = sessionUser.id;
+    baseData.userEmail = sessionUser.email;
+    baseData.userName = sessionUser.name;
+  }
+
+  return baseData;
 }

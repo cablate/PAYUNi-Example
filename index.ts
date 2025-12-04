@@ -1,14 +1,14 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import session from "express-session";
 import { OAuth2Client } from "google-auth-library";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
-import products from "./src/data/products.js";
-import logger from "./src/utils/logger.js";
-import { printEnvironmentConfig, printError, printStartupBanner, printSuccess, printWarning } from "./src/utils/startup.js";
+import products from "./src/data/products";
+import logger from "./src/utils/logger";
+import { printEnvironmentConfig, printError, printStartupBanner, printSuccess, printWarning } from "./src/utils/startup";
 
-import { GOOGLE_CONFIG, REQUIRED_ENV_VARS, SERVER_CONFIG, SESSION_CONFIG } from "./src/config/constants.js";
+import { GOOGLE_CONFIG, REQUIRED_ENV_VARS, SERVER_CONFIG, SESSION_CONFIG } from "./src/config/constants";
 
 import {
   configureCors,
@@ -17,13 +17,13 @@ import {
   configureRequestLogger,
   createGeneralLimiter,
   createPaymentLimiter,
-} from "./src/middleware/security.js";
+} from "./src/middleware/security";
 
-import { errorHandler } from "./src/middleware/errorHandler.js";
-import { createAuthRoutes } from "./src/routes/auth.js";
-import { createOrderRoutes } from "./src/routes/orders.js";
-import { createPaymentRoutes } from "./src/routes/payment.js";
-import subscriptionsRouter from "./src/routes/subscriptions.js";
+import { errorHandler } from "./src/middleware/errorHandler";
+import { createAuthRoutes } from "./src/routes/auth";
+import { createOrderRoutes } from "./src/routes/orders";
+import { createPaymentRoutes } from "./src/routes/payment";
+import subscriptionsRouter from "./src/routes/subscriptions";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -42,7 +42,7 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-if (!process.env.PAYUNI_API_URL.includes("sandbox")) {
+if (!process.env.PAYUNI_API_URL!.includes("sandbox")) {
   printWarning("PAYUNI_API_URL 不是沙箱環境！請確認您是否要使用正式環境。");
 }
 
@@ -80,7 +80,7 @@ app.use(generalLimiter);
 // Session 配置
 app.use(
   session({
-    secret: SESSION_CONFIG.SECRET,
+    secret: SESSION_CONFIG.SECRET!,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -104,7 +104,7 @@ configureRequestLogger(app);
 // 一次性權杖存儲
 // ========================================
 
-const oneTimeTokens = new Map();
+const oneTimeTokens = new Map<string, any>();
 
 // ========================================
 // 路由掛載
@@ -132,7 +132,7 @@ app.use(createOrderRoutes(oneTimeTokens));
 /**
  * 前端配置 API
  */
-app.get("/api/client-config", (req, res) => {
+app.get("/api/client-config", (req: Request, res: Response) => {
   res.json({
     turnstileEnable: process.env.TURNSTILE_ENABLE === "true",
   });
@@ -141,11 +141,11 @@ app.get("/api/client-config", (req, res) => {
 /**
  * CSRF Token API
  */
-app.get("/csrf-token", csrfProtection, (req, res) => {
+app.get("/csrf-token", csrfProtection, (req: Request, res: Response) => {
   try {
-    const token = req.csrfToken();
+    const token = (req as any).csrfToken();
     res.json({ csrfToken: token });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Failed to generate CSRF token", { error: error.message });
     res.status(500).json({ error: "Failed to generate CSRF token" });
   }
@@ -154,7 +154,7 @@ app.get("/csrf-token", csrfProtection, (req, res) => {
 /**
  * 商品列表 API
  */
-app.get("/api/products", (req, res) => {
+app.get("/api/products", (req: Request, res: Response) => {
   res.json(products);
 });
 
@@ -195,7 +195,7 @@ const server = app.listen(port, () => {
   printSuccess(port);
 });
 
-server.on("error", (error) => {
+server.on("error", (error: any) => {
   if (error.code === "EADDRINUSE") {
     logger.error(`Port ${port} is already in use`);
   } else {

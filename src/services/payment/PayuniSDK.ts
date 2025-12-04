@@ -12,10 +12,54 @@
 
 import axios from "axios";
 import querystring from "querystring";
-import { decrypt, encrypt, sha256 } from "../../utils/crypto.js";
-import logger from "../../utils/logger.js";
+import { decrypt, encrypt, sha256 } from "../../utils/crypto";
+import logger from "../../utils/logger";
+
+interface SDKConfig {
+  merchantId: string;
+  hashKey: string;
+  hashIV: string;
+  apiUrl: string;
+  notifyUrl?: string;
+}
+
+interface Product {
+  id?: string;
+  name: string;
+  price: number;
+  periodConfig?: any;
+}
+
+interface TradeInfo {
+  merTradeNo: string;
+  tradeNo: string;
+  tradeStatus: number;
+  tradeStatusText: string;
+  amount: number;
+  fee: number;
+  paymentType: number;
+  paymentTypeText: string;
+  paymentDay: string;
+  createDay: string;
+  message: string;
+  dataSource: string;
+  isPaid: boolean;
+}
+
+interface ModifyPeriodStatusOptions {
+  reviseTradeStatus: string;
+  periodTradeNo: string;
+  merTradeNo?: string;
+  periodOrderNo?: number | string;
+}
 
 export class PayuniSDK {
+  private merchantId: string;
+  private hashKey: string;
+  private hashIV: string;
+  private apiUrl: string;
+  private notifyUrl?: string;
+
   /**
    * 初始化 SDK
    * @param {Object} config - 配置物件
@@ -25,7 +69,7 @@ export class PayuniSDK {
    * @param {string} config.apiUrl - PayUNi API URL
    * @param {string} config.notifyUrl - Webhook 通知 URL
    */
-  constructor(config) {
+  constructor(config: SDKConfig) {
     if (!config.merchantId || !config.hashKey || !config.hashIV || !config.apiUrl) {
       throw new Error("PayuniSDK 配置不完整：需要 merchantId, hashKey, hashIV, apiUrl");
     }
@@ -50,12 +94,12 @@ export class PayuniSDK {
    * @param {string} returnUrl - 返回 URL
    * @returns {Object} { payUrl, data: { MerID, Version, EncryptInfo, HashInfo } }
    */
-  generatePaymentInfo(tradeNo, product, userEmail, returnUrl) {
+  generatePaymentInfo(tradeNo: string, product: Product, userEmail: string, returnUrl: string): any {
     try {
       const timestamp = Math.round(new Date().getTime() / 1000);
 
       // 構建交易資料
-      const tradeData = {
+      const tradeData: any = {
         MerID: this.merchantId,
         Version: "1.0",
         MerTradeNo: tradeNo,
@@ -88,7 +132,7 @@ export class PayuniSDK {
           HashInfo: hashInfo,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("生成支付資訊失敗", {
         tradeNo,
         errorMessage: error.message,
@@ -105,7 +149,7 @@ export class PayuniSDK {
    * @param {string} returnUrl - 返回 URL
    * @returns {Object} { payUrl, data: { MerID, Version, EncryptInfo, HashInfo } }
    */
-  generatePeriodPaymentInfo(tradeNo, product, userEmail, returnUrl) {
+  generatePeriodPaymentInfo(tradeNo: string, product: Product, userEmail: string, returnUrl: string): any {
     try {
       const { periodConfig } = product;
 
@@ -114,7 +158,7 @@ export class PayuniSDK {
       }
 
       // 構建續期收款資料
-      const periodData = {
+      const periodData: any = {
         MerID: this.merchantId,
         MerTradeNo: tradeNo,
         PeriodAmt: product.price,
@@ -153,7 +197,7 @@ export class PayuniSDK {
           HashInfo: hashInfo,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("生成續期收款資訊失敗", {
         tradeNo,
         errorMessage: error.message,
@@ -168,7 +212,7 @@ export class PayuniSDK {
    * @param {string} hashInfo - 雜湊值
    * @returns {boolean} 驗證結果
    */
-  verifyWebhookData(encryptInfo, hashInfo) {
+  verifyWebhookData(encryptInfo: string, hashInfo: string): boolean {
     try {
       // 計算預期的 Hash
       const calculatedHash = this._hash(encryptInfo);
@@ -186,7 +230,7 @@ export class PayuniSDK {
 
       logger.info("Webhook 資料驗證成功");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Webhook 資料驗證出錯", {
         error: error.message,
       });
@@ -199,7 +243,7 @@ export class PayuniSDK {
    * @param {string} encryptInfo - 加密資料
    * @returns {Object} 解密後的交易資料
    */
-  parseWebhookData(encryptInfo) {
+  parseWebhookData(encryptInfo: string): any {
     try {
       // 解密
       const decryptedStr = this._decrypt(encryptInfo);
@@ -209,12 +253,12 @@ export class PayuniSDK {
 
       logger.info("Webhook 資料已解析", {
         ...webhookData,
-        tradeNo: webhookData.MerTradeNo,
-        status: webhookData.Status,
+        tradeNo: (webhookData as any).MerTradeNo,
+        status: (webhookData as any).Status,
       });
 
       return webhookData;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("解析 Webhook 資料失敗", {
         error: error.message,
       });
@@ -229,7 +273,7 @@ export class PayuniSDK {
    * @param {string} hashInfo - 雜湊值
    * @returns {Object|null} 驗證成功返回解密資料，失敗返回 null
    */
-  validateAndParseWebhook(encryptInfo, hashInfo) {
+  validateAndParseWebhook(encryptInfo: string, hashInfo: string): any {
     try {
       // 先驗證
       if (!this.verifyWebhookData(encryptInfo, hashInfo)) {
@@ -239,7 +283,7 @@ export class PayuniSDK {
 
       // 再解析
       return this.parseWebhookData(encryptInfo);
-    } catch (error) {
+    } catch (error: any) {
       logger.error("驗證和解析 Webhook 失敗", {
         error: error.message,
       });
@@ -252,13 +296,8 @@ export class PayuniSDK {
    * 調用 Payuni 查詢 API 以確認交易狀態
    * @param {string} merTradeNo - 商店訂單編號
    * @returns {Promise<Object>} 訂單查詢結果
-   * @example
-   *   const result = await sdk.queryTradeStatus('TRADE123456789');
-   *   if (result.success && result.tradeStatus === 1) {
-   *     // 訂單已支付
-   *   }
    */
-  async queryTradeStatus(merTradeNo) {
+  async queryTradeStatus(merTradeNo: string): Promise<any> {
     try {
       logger.info("正在查詢訂單狀態", { merTradeNo });
 
@@ -351,7 +390,7 @@ export class PayuniSDK {
         data: tradeInfo,
         rawData: resultData,
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("查詢訂單異常", {
         merTradeNo,
         error: error.message,
@@ -370,10 +409,10 @@ export class PayuniSDK {
    * @param {Object} resultData - 查詢結果資料
    * @returns {Object|null} 解析後的交易信息
    */
-  _parsePayuniResult(resultData) {
+  private _parsePayuniResult(resultData: any): TradeInfo | null {
     try {
       // 提取 Result[0][xxx] 格式的資料
-      const result = {};
+      const result: any = {};
       Object.keys(resultData).forEach((key) => {
         const match = key.match(/^Result\[0\]\[(\w+)\]$/);
         if (match) {
@@ -391,7 +430,7 @@ export class PayuniSDK {
 
       // 使用提取出的結果解析
       return this._parseTradeResult(result);
-    } catch (error) {
+    } catch (error: any) {
       logger.error("解析 Payuni 結果失敗", { errorMessage: error.message });
       return null;
     }
@@ -403,9 +442,9 @@ export class PayuniSDK {
    * @param {Object} result - 原始交易結果
    * @returns {Object} 解析後的交易信息
    */
-  _parseTradeResult(result) {
+  private _parseTradeResult(result: any): TradeInfo {
     logger.info("解析交易結果", { result });
-    const statusMap = {
+    const statusMap: Record<string, string> = {
       0: "取號成功",
       9: "未付款",
       1: "已付款",
@@ -415,7 +454,7 @@ export class PayuniSDK {
       8: "訂單待確認",
     };
 
-    const paymentTypeMap = {
+    const paymentTypeMap: Record<number, string> = {
       1: "信用卡",
       2: "ATM轉帳",
       3: "條碼/代碼",
@@ -430,24 +469,20 @@ export class PayuniSDK {
 
     return {
       merTradeNo: result.MerTradeNo,
-      tradeNo: result.TradeNo, // Payuni 序號
-      tradeStatus: parseInt(result.TradeStatus), // 訂單狀態碼
+      tradeNo: result.TradeNo,
+      tradeStatus: parseInt(result.TradeStatus),
       tradeStatusText: statusMap[result.TradeStatus] || "未知狀態",
       amount: parseFloat(result.TradeAmt),
       fee: parseFloat(result.TradeFee || 0),
       paymentType: parseInt(result.PaymentType),
-      paymentTypeText: paymentTypeMap[result.PaymentType] || "未知支付方式",
-      paymentDay: result.PaymentDay, // 支付日期
-      createDay: result.CreateDay, // 建立日期
+      paymentTypeText: paymentTypeMap[parseInt(result.PaymentType)] || "未知支付方式",
+      paymentDay: result.PaymentDay,
+      createDay: result.CreateDay,
       message: result.Message,
-      dataSource: result.DataSource, // A=完整, B=處理中未完整
-      isPaid: parseInt(result.TradeStatus) === 1, // 是否已支付
+      dataSource: result.DataSource,
+      isPaid: parseInt(result.TradeStatus) === 1,
     };
   }
-
-  // ========================================
-  // 私有方法 - 加密/解密/Hash
-  // ========================================
 
   /**
    * 加密和生成 Hash 的共用方法
@@ -455,57 +490,16 @@ export class PayuniSDK {
    * @param {Object} dataObject - 要加密的資料物件
    * @returns {Object} { encryptInfo, hashInfo }
    */
-  _encryptAndHash(dataObject) {
+  private _encryptAndHash(dataObject: any): { encryptInfo: string; hashInfo: string } {
     try {
       const plaintext = querystring.stringify(dataObject);
       const encryptInfo = this._encrypt(plaintext);
       const hashInfo = this._hash(encryptInfo);
       return { encryptInfo, hashInfo };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("加密和雜湊失敗", { errorMessage: error.message });
       throw error;
     }
-  }
-
-  /**
-   * 發送 API 請求的共用方法
-   * @private
-   * @param {string} endpoint - API 端點
-   * @param {Object} requestData - 請求資料
-   * @returns {Promise<Object>} API 回應
-   */
-  async _sendApiRequest(endpoint, requestData) {
-    try {
-      const response = await axios.post(`${this.apiUrl}${endpoint}`, requestData, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "payuni-sdk",
-        },
-        timeout: 10000,
-      });
-      return response.data;
-    } catch (error) {
-      logger.error("API 請求失敗", {
-        endpoint,
-        errorMessage: error.message,
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * 驗證 API 回應的 Hash
-   * @private
-   * @param {Object} responseData - 回應資料
-   * @returns {boolean} 驗證是否成功
-   */
-  _verifyResponseHash(responseData) {
-    if (!responseData?.EncryptInfo || !responseData?.HashInfo) {
-      return true; // 沒有加密資料時不驗證
-    }
-
-    const calculatedHash = this._hash(responseData.EncryptInfo);
-    return calculatedHash === responseData.HashInfo;
   }
 
   /**
@@ -514,12 +508,12 @@ export class PayuniSDK {
    * @param {string} plaintext - 明文
    * @returns {string} 加密文本
    */
-  _encrypt(plaintext) {
+  private _encrypt(plaintext: string): string {
     try {
       const merIv = Buffer.from(this.hashIV, "utf8");
-      const encryptedData = encrypt(plaintext, this.hashKey, merIv);
+      const encryptedData = encrypt(plaintext, Buffer.from(this.hashKey), merIv);
       return encryptedData;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("加密失敗", { errorMessage: error.message });
       throw error;
     }
@@ -531,12 +525,12 @@ export class PayuniSDK {
    * @param {string} encryptedText - 加密文本
    * @returns {string} 明文
    */
-  _decrypt(encryptedText) {
+  private _decrypt(encryptedText: string): string {
     try {
       const merIv = Buffer.from(this.hashIV, "utf8");
-      const decryptedData = decrypt(encryptedText, this.hashKey, merIv);
+      const decryptedData = decrypt(encryptedText, Buffer.from(this.hashKey), merIv);
       return decryptedData;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("解密失敗", { errorMessage: error.message });
       throw error;
     }
@@ -548,12 +542,11 @@ export class PayuniSDK {
    * @param {string} encryptedText - 加密文本
    * @returns {string} Hash 值
    */
-  _hash(encryptedText) {
+  private _hash(encryptedText: string): string {
     try {
-      const merIv = Buffer.from(this.hashIV, "utf8");
-      const hashValue = sha256(encryptedText, this.hashKey, merIv);
+      const hashValue = sha256(encryptedText, this.hashKey, this.hashIV);
       return hashValue;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Hash 計算失敗", { errorMessage: error.message });
       throw error;
     }
@@ -564,13 +557,8 @@ export class PayuniSDK {
    * 調用 PayUNi 取消續期 API
    * @param {string} periodTradeNo - 續期收款單號
    * @returns {Promise<Object>} 取消結果
-   * @example
-   *   const result = await sdk.cancelPeriodPayment('PAY202511...');
-   *   if (result.success) {
-   *     // 取消成功
-   *   }
    */
-  async cancelPeriodPayment(periodTradeNo) {
+  async cancelPeriodPayment(periodTradeNo: string): Promise<any> {
     try {
       logger.info("正在取消續期收款", { periodTradeNo });
 
@@ -601,7 +589,7 @@ export class PayuniSDK {
           "Content-Type": "application/json",
           "User-Agent": "payuni-sdk",
         },
-        timeout: 10000, // 10 秒超時
+        timeout: 10000,
       });
 
       logger.info("取消 API 回應", {
@@ -638,7 +626,7 @@ export class PayuniSDK {
         // 解密回應資料
         const decryptedStr = this._decrypt(response.data.EncryptInfo);
         const resultData = querystring.parse(decryptedStr);
-        
+
         logger.info("續期已成功取消", {
           periodTradeNo,
           resultData,
@@ -657,7 +645,7 @@ export class PayuniSDK {
         success: true,
         message: "續期取消成功",
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("取消續期異常", {
         periodTradeNo,
         error: error.message,
@@ -678,8 +666,10 @@ export class PayuniSDK {
    * @param {number|string} [options.periodOrderNo] - 期數編號
    * @returns {Promise<Object>}
    */
-  async modifyPeriodStatus({ reviseTradeStatus, periodTradeNo, merTradeNo, periodOrderNo }) {
+  async modifyPeriodStatus(options: ModifyPeriodStatusOptions): Promise<any> {
     try {
+      const { reviseTradeStatus, periodTradeNo, merTradeNo, periodOrderNo } = options;
+
       if (!reviseTradeStatus) {
         throw new Error("缺少 reviseTradeStatus 參數");
       }
@@ -695,7 +685,7 @@ export class PayuniSDK {
         periodOrderNo,
       });
 
-      const requestBodyData = {
+      const requestBodyData: any = {
         MerID: this.merchantId,
         ReviseTradeStatus: reviseTradeStatus,
         PeriodTradeNo: periodTradeNo,
@@ -733,7 +723,7 @@ export class PayuniSDK {
         status: response.data?.Status,
       });
 
-      let resultData = null;
+      let resultData: any = null;
 
       if (response.data.EncryptInfo) {
         const calculatedHash = this._hash(response.data.EncryptInfo);
@@ -758,6 +748,7 @@ export class PayuniSDK {
         if (response.data.MerTradeNo) resultData.MerTradeNo = response.data.MerTradeNo;
         if (response.data.PeriodTradeNo) resultData.PeriodTradeNo = response.data.PeriodTradeNo;
       }
+
       // 檢查解密後的狀態碼
       if (!resultData.Status || resultData.Status !== "SUCCESS") {
         logger.warn("修改續期狀態失敗", {
@@ -782,9 +773,9 @@ export class PayuniSDK {
         message: resultData.Message || "續期狀態修改成功",
         data: resultData,
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("修改續期狀態異常", {
-        periodTradeNo,
+        periodTradeNo: options.periodTradeNo,
         error: error.message,
       });
       return {
@@ -799,25 +790,10 @@ export class PayuniSDK {
  * 建立 PayuniSDK 實例的工廠函數
  *
  * @param {Object} config - 配置物件
- * @param {string} config.merchantId - 商家ID（從環境變數 PAYUNI_MERCHANT_ID）
- * @param {string} config.hashKey - Hash 密鑰（從環境變數 PAYUNI_HASH_KEY）
- * @param {string} config.hashIV - Hash IV（從環境變數 PAYUNI_HASH_IV）
- * @param {string} config.apiUrl - PayUNi API URL（從環境變數 PAYUNI_API_URL）
- * @param {string} [config.notifyUrl] - Webhook 通知 URL（可選）
  * @returns {PayuniSDK} PayuniSDK 實例
  * @throws {Error} 若配置不完整
- *
- * @example
- * const config = {
- *   merchantId: process.env.PAYUNI_MERCHANT_ID,
- *   hashKey: process.env.PAYUNI_HASH_KEY,
- *   hashIV: process.env.PAYUNI_HASH_IV,
- *   apiUrl: process.env.PAYUNI_API_URL,
- *   notifyUrl: 'https://example.com/api/payuni-webhook'
- * };
- * const sdk = createPayuniSDK(config);
  */
-export function createPayuniSDK(config) {
+export function createPayuniSDK(config: SDKConfig): PayuniSDK {
   return new PayuniSDK(config);
 }
 

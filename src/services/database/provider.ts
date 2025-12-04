@@ -3,17 +3,17 @@
  * 提供統一的資料庫實例，支援未來切換不同的資料庫實現
  */
 
-import { GoogleSheetsOrderDatabase } from "./GoogleSheets.js";
+import { GoogleSheetsOrderDatabase } from "./GoogleSheets";
 
 /**
  * 初始化並導出資料庫實例
  */
-let dbInstance = null;
+let dbInstance: any = null;
 
 /**
  * 取得資料庫實例（單例模式）
  */
-export function getDatabase() {
+export function getDatabase(): any {
   if (!dbInstance) {
     const dbType = process.env.ORDER_DATABASE_TYPE || "google-sheets";
 
@@ -39,7 +39,7 @@ export function getDatabase() {
 /**
  * 重置資料庫實例（用於測試）
  */
-export function resetDatabase() {
+export function resetDatabase(): void {
   dbInstance = null;
 }
 

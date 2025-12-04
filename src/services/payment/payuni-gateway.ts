@@ -18,14 +18,88 @@
  *   const parsedData = gateway.parseWebhook(webhookData);
  */
 
-import logger from "../../utils/logger.js";
+import logger from "../../utils/logger";
+
+interface PayuniSDK {
+  generatePaymentInfo(
+    tradeNo: string,
+    product: any,
+    userEmail: string,
+    returnUrl: string
+  ): { payUrl: string; data: any };
+  generatePeriodPaymentInfo(
+    tradeNo: string,
+    product: any,
+    userEmail: string,
+    returnUrl: string
+  ): { payUrl: string; data: any };
+  verifyWebhookData(encryptInfo: string, hashInfo: string): boolean;
+  parseWebhookData(encryptInfo: string): any;
+  queryTradeStatus(tradeNo: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>;
+  cancelPeriodPayment(periodTradeNo: string): Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  modifyPeriodStatus(options: {
+    reviseTradeStatus: string;
+    periodTradeNo: string;
+    merTradeNo?: string;
+    periodOrderNo?: number | string;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+}
+
+interface Order {
+  tradeNo: string;
+  product: {
+    id?: string;
+    name: string;
+    price: number;
+    periodConfig?: {
+      periodType: string;
+      periodTimes: number;
+    };
+  };
+  userEmail: string;
+}
+
+interface WebhookData {
+  EncryptInfo: string;
+  HashInfo: string;
+}
+
+interface PaymentResult {
+  payUrl: string;
+  data: any;
+}
+
+interface QueryResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+interface ModifyOptions {
+  reviseTradeStatus: string;
+  periodTradeNo: string;
+  merTradeNo?: string;
+  periodOrderNo?: number | string;
+}
 
 export class PayuniGateway {
+  private sdk: PayuniSDK;
+
   /**
    * 初始化金流閘道
    * @param {PayuniSDK} sdk - PayuniSDK 實例
    */
-  constructor(sdk) {
+  constructor(sdk: PayuniSDK) {
     if (!sdk) {
       throw new Error("PayuniGateway 需要 PayuniSDK 實例");
     }
@@ -54,7 +128,7 @@ export class PayuniGateway {
    *   userEmail: 'user@example.com'
    * }, 'https://example.com/payment-return');
    */
-  createPayment(order, returnUrl) {
+  createPayment(order: Order, returnUrl: string): PaymentResult {
     try {
       const { tradeNo, product, userEmail } = order;
 
@@ -79,7 +153,7 @@ export class PayuniGateway {
         payUrl: paymentInfo.payUrl,
         data: paymentInfo.data,
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("建立一次性支付失敗", {
         tradeNo: order.tradeNo,
         error: error.message,
@@ -109,7 +183,7 @@ export class PayuniGateway {
    *   userEmail: 'user@example.com'
    * }, 'https://example.com/payment-return');
    */
-  createSubscription(order, returnUrl) {
+  createSubscription(order: Order, returnUrl: string): PaymentResult {
     try {
       const { tradeNo, product, userEmail } = order;
 
@@ -141,7 +215,7 @@ export class PayuniGateway {
         payUrl: periodPaymentInfo.payUrl,
         data: periodPaymentInfo.data,
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("建立訂閱支付失敗", {
         tradeNo: order.tradeNo,
         error: error.message,
@@ -168,7 +242,7 @@ export class PayuniGateway {
    *   return res.status(400).send('驗證失敗');
    * }
    */
-  verifyWebhook(webhookData) {
+  verifyWebhook(webhookData: WebhookData): boolean {
     try {
       const { EncryptInfo, HashInfo } = webhookData;
 
@@ -190,7 +264,7 @@ export class PayuniGateway {
 
       logger.info("Webhook 驗證成功");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Webhook 驗證異常", { error: error.message });
       return false;
     }
@@ -207,7 +281,7 @@ export class PayuniGateway {
    * const parsedData = gateway.parseWebhook(req.body);
    * console.log(parsedData.MerTradeNo, parsedData.Status);
    */
-  parseWebhook(webhookData) {
+  parseWebhook(webhookData: WebhookData): any {
     try {
       const { EncryptInfo } = webhookData;
 
@@ -224,7 +298,7 @@ export class PayuniGateway {
       });
 
       return parsedData;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("解析 Webhook 資料失敗", { error: error.message });
       throw error;
     }
@@ -244,7 +318,7 @@ export class PayuniGateway {
    *   return res.status(400).send('驗證失敗');
    * }
    */
-  verifyAndParseWebhook(webhookData) {
+  verifyAndParseWebhook(webhookData: WebhookData): any | null {
     try {
       // 先驗證
       if (!this.verifyWebhook(webhookData)) {
@@ -253,7 +327,7 @@ export class PayuniGateway {
 
       // 再解析
       return this.parseWebhook(webhookData);
-    } catch (error) {
+    } catch (error: any) {
       logger.error("驗證並解析 Webhook 失敗", { error: error.message });
       return null;
     }
@@ -278,7 +352,7 @@ export class PayuniGateway {
    *   // 訂單已支付
    * }
    */
-  async queryOrderStatus(tradeNo) {
+  async queryOrderStatus(tradeNo: string): Promise<QueryResult> {
     try {
       if (!tradeNo) {
         throw new Error("缺少訂單編號");
@@ -311,7 +385,7 @@ export class PayuniGateway {
         success: true,
         data: queryResult.data,
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("查詢訂單異常", {
         tradeNo,
         error: error.message,
@@ -335,7 +409,7 @@ export class PayuniGateway {
    *   // 取消成功
    * }
    */
-  async cancelSubscription(periodTradeNo) {
+  async cancelSubscription(periodTradeNo: string): Promise<QueryResult> {
     try {
       if (!periodTradeNo) {
         throw new Error("缺少續期收款單號");
@@ -356,7 +430,7 @@ export class PayuniGateway {
 
       logger.info("訂閱已取消", { periodTradeNo });
       return cancelResult;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("取消訂閱異常", {
         periodTradeNo,
         error: error.message,
@@ -384,7 +458,7 @@ export class PayuniGateway {
    *   periodTradeNo: 'PAY202511...'
    * });
    */
-  async modifySubscriptionStatus(options) {
+  async modifySubscriptionStatus(options: ModifyOptions): Promise<QueryResult> {
     try {
       logger.info("正在修改訂閱狀態", options);
 
@@ -401,7 +475,7 @@ export class PayuniGateway {
 
       logger.info("訂閱狀態已修改", options);
       return modifyResult;
-    } catch (error) {
+    } catch (error: any) {
       logger.error("修改訂閱狀態異常", {
         ...options,
         error: error.message,
@@ -421,7 +495,11 @@ export class PayuniGateway {
    * 驗證支付請求的必要欄位
    * @private
    */
-  _validatePaymentRequest(tradeNo, product, userEmail) {
+  private _validatePaymentRequest(
+    tradeNo: string,
+    product: { name: string; price: number },
+    userEmail: string
+  ): void {
     if (!tradeNo) {
       throw new Error("缺少訂單編號");
     }
@@ -449,7 +527,7 @@ export class PayuniGateway {
  * const sdk = getPayuniSDK();
  * const gateway = createPayuniGateway(sdk);
  */
-export function createPayuniGateway(sdk) {
+export function createPayuniGateway(sdk: PayuniSDK): PayuniGateway {
   return new PayuniGateway(sdk);
 }
 

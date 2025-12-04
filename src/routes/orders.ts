@@ -1,11 +1,11 @@
-import { Router } from "express";
-import { getDatabase } from "../services/database/provider.js";
-import logger from "../utils/logger.js";
+import { Router, Request, Response } from "express";
+import { getDatabase } from "../services/database/provider";
+import logger from "../utils/logger";
 
 /**
  * 安全錯誤處理工具函數
  */
-function sendSecureError(res, statusCode, publicMessage, logContext = {}) {
+function sendSecureError(res: Response, statusCode: number, publicMessage: string, logContext: any = {}): Response {
   logger.error(publicMessage, logContext);
 
   if (process.env.NODE_ENV === "production") {
@@ -24,15 +24,16 @@ function sendSecureError(res, statusCode, publicMessage, logContext = {}) {
 /**
  * 建立訂單路由
  */
-export function createOrderRoutes(oneTimeTokens) {
+export function createOrderRoutes(oneTimeTokens: Map<string, any>): Router {
   const router = Router();
 
   /**
    * 取得我的訂單
    */
-  router.get("/api/my-orders", async (req, res) => {
+  router.get("/api/my-orders", async (req: Request, res: Response): Promise<void> => {
     if (!req.session.user) {
-      return res.status(401).json({ error: "請先登入" });
+      res.status(401).json({ error: "請先登入" });
+      return;
     }
 
     try {
@@ -40,7 +41,7 @@ export function createOrderRoutes(oneTimeTokens) {
       const db = getDatabase();
       const orders = await db.getUserOrders(userEmail);
       res.json({ success: true, orders });
-    } catch (error) {
+    } catch (error: any) {
       sendSecureError(res, 500, "查詢訂單失敗", { message: error.message });
     }
   });
@@ -48,17 +49,17 @@ export function createOrderRoutes(oneTimeTokens) {
   /**
    * 取得訂單結果（使用一次性權杖）
    */
-  router.get("/api/order-result/:token", (req, res) => {
+  router.get("/api/order-result/:token", (req: Request, res: Response) => {
     const { token } = req.params;
     const resultData = oneTimeTokens.get(token);
 
     if (resultData) {
       oneTimeTokens.delete(token);
       logger.info("使用 token 檢索訂單結果", { tradeNo: resultData.tradeNo });
-      res.json(resultData);
+      return res.json(resultData);
     } else {
       logger.warn("接收到無效或過期的 token", { token });
-      res.status(404).json({ error: "無效或已過期的連結" });
+      return res.status(404).json({ error: "無效或已過期的連結" });
     }
   });
 

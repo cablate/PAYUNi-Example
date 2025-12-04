@@ -1,4 +1,34 @@
-const products = [
+interface PeriodConfig {
+  periodType: string;
+  periodDate: string;
+  periodTimes: number;
+  fType: string;
+  fAmt: null;
+  firstChargeDelayDays?: number;
+}
+
+interface TrialConfig {
+  days: number;
+  amount: number;
+  description: string;
+}
+
+interface Product {
+  id: string;
+  type: string;
+  name: string;
+  price: number;
+  period: string | null;
+  description: string;
+  features: string[];
+  recommended: boolean;
+  periodConfig?: PeriodConfig;
+  trial?: TrialConfig;
+  icon?: string;
+  iconColor?: string;
+}
+
+const products: Product[] = [
   // --- Subscription Plans ---
   {
     id: "plan_basic",

@@ -1,13 +1,13 @@
 import axios from "axios";
-import { TURNSTILE_CONFIG } from "../config/constants.js";
-import logger from "./logger.js";
+import { TURNSTILE_CONFIG } from "../config/constants";
+import logger from "./logger";
 
 /**
  * 驗證 Cloudflare Turnstile 驗證碼
  * @param {string} token - Turnstile response token
  * @returns {Promise<boolean>} 驗證結果
  */
-export async function verifyTurnstile(token) {
+export async function verifyTurnstile(token: string): Promise<boolean> {
   if (!TURNSTILE_CONFIG.ENABLE) {
     logger.info("Turnstile is disabled, skipping verification");
     return true;
@@ -40,7 +40,7 @@ export async function verifyTurnstile(token) {
 
     logger.info("Turnstile verification successful");
     return true;
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Turnstile verification error", {
       message: error.message,
       stack: error.stack,

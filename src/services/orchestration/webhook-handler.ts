@@ -18,20 +18,53 @@
  *   const result = await handler.processWebhook(webhookBody);
  */
 
-import logger from "../../utils/logger.js";
+import logger from "../../utils/logger";
+
+interface PaymentGateway {
+  verifyWebhook(webhookData: WebhookData): boolean;
+  parseWebhook(webhookData: WebhookData): any;
+  queryOrderStatus(tradeNo: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>;
+}
+
+interface WebhookProcessor {
+  processPayment(parsedData: any, queryData: any): Promise<{
+    success: boolean;
+    message: string;
+    data?: any;
+  }>;
+}
+
+interface WebhookData {
+  EncryptInfo: string;
+  HashInfo: string;
+  Status: string;
+}
+
+interface ProcessResult {
+  success: boolean;
+  message: string;
+  data?: any;
+}
 
 export class WebhookHandler {
+  private gateway: PaymentGateway;
+  private processor: WebhookProcessor;
+
   /**
    * 初始化 Webhook 處理器
    *
-   * @param {PayuniGateway} paymentGateway - 金流閘道實例（用於驗證、解析、查詢）
+   * @param {PaymentGateway} paymentGateway - 金流閘道實例（用於驗證、解析、查詢）
    * @param {WebhookProcessor} webhookProcessor - 業務處理器實例（用於處理業務邏輯）
    *
    * @example
    * const handler = new WebhookHandler(gateway, processor);
    * const result = await handler.processWebhook(webhookBody);
    */
-  constructor(paymentGateway, webhookProcessor) {
+  constructor(paymentGateway: PaymentGateway, webhookProcessor: WebhookProcessor) {
     if (!paymentGateway) {
       throw new Error("WebhookHandler 需要 paymentGateway 實例");
     }
@@ -80,7 +113,7 @@ export class WebhookHandler {
    *   console.log(`訂單 ${result.data.tradeNo} 已處理`);
    * }
    */
-  async processWebhook(webhookData) {
+  async processWebhook(webhookData: WebhookData): Promise<ProcessResult> {
     try {
       logger.info("接收 Webhook 通知", {
         status: webhookData.Status,
@@ -92,7 +125,7 @@ export class WebhookHandler {
         return validationResult;
       }
 
-      const { parsedData, tradeNo } = validationResult.data;
+      const { parsedData, tradeNo } = validationResult.data!;
 
       // 步驟 2: 查詢金流商 API 確認狀態（不信任 Webhook，以 API 為準）
       const queryResult = await this._queryOrderStatus(tradeNo);
@@ -100,7 +133,7 @@ export class WebhookHandler {
         return queryResult;
       }
 
-      const queryData = queryResult.data;
+      const queryData = queryResult.data!;
 
       logger.info("✓ Webhook 驗證和查詢完成，準備處理業務邏輯", {
         tradeNo,
@@ -138,7 +171,7 @@ export class WebhookHandler {
           amount: queryData.amount,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Webhook 處理異常", { errorMessage: error.message });
       return {
         success: false,
@@ -157,7 +190,7 @@ export class WebhookHandler {
    * @param {Object} webhookData - Webhook 資料
    * @returns {Object} 驗證結果
    */
-  _validateWebhookData(webhookData) {
+  private _validateWebhookData(webhookData: WebhookData): ProcessResult {
     const { EncryptInfo, HashInfo, Status } = webhookData;
 
     // 檢查支付狀態
@@ -175,10 +208,10 @@ export class WebhookHandler {
     }
 
     // 解密資料（使用 Gateway）
-    let parsedData;
+    let parsedData: any;
     try {
       parsedData = this.gateway.parseWebhook(webhookData);
-    } catch (error) {
+    } catch (error: any) {
       logger.error("❌ 解析 Webhook 資料失敗", { error: error.message });
       return {
         success: false,
@@ -207,6 +240,7 @@ export class WebhookHandler {
 
     return {
       success: true,
+      message: "Webhook 驗證成功",
       data: {
         parsedData,
         tradeNo,
@@ -222,7 +256,7 @@ export class WebhookHandler {
    * @param {string} tradeNo - 商戶訂單編號
    * @returns {Promise<Object>} 查詢結果
    */
-  async _queryOrderStatus(tradeNo) {
+  private async _queryOrderStatus(tradeNo: string): Promise<ProcessResult> {
     try {
       logger.info("正在查詢金流商 API 確認訂單狀態", { tradeNo });
 
@@ -249,9 +283,10 @@ export class WebhookHandler {
 
       return {
         success: true,
+        message: "查詢訂單成功",
         data: queryResult.data,
       };
-    } catch (queryError) {
+    } catch (queryError: any) {
       logger.error("⚠️ 查詢訂單異常，放棄處理", {
         tradeNo,
         error: queryError.message,
@@ -267,7 +302,7 @@ export class WebhookHandler {
 /**
  * 建立 WebhookHandler 實例的工廠函數
  *
- * @param {PayuniGateway} paymentGateway - 金流閘道實例
+ * @param {PaymentGateway} paymentGateway - 金流閘道實例
  * @param {WebhookProcessor} webhookProcessor - 業務處理器實例
  * @returns {WebhookHandler} WebhookHandler 實例
  *
@@ -280,7 +315,10 @@ export class WebhookHandler {
  * const processor = createWebhookProcessor(db, products);
  * const handler = createWebhookHandler(gateway, processor);
  */
-export function createWebhookHandler(paymentGateway, webhookProcessor) {
+export function createWebhookHandler(
+  paymentGateway: PaymentGateway,
+  webhookProcessor: WebhookProcessor
+): WebhookHandler {
   return new WebhookHandler(paymentGateway, webhookProcessor);
 }
 

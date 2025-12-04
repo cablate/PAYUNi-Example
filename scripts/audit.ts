@@ -1,15 +1,15 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 console.log('\x1b[36m%s\x1b[0m', '🚀 Starting Flight Check: Security & Configuration Audit...');
 
 let passed = true;
-const errors = [];
-const warnings = [];
+const errors: string[] = [];
+const warnings: string[] = [];
 
 // Helper to check file existence
-function checkFile(filePath, description) {
+function checkFile(filePath: string, description: string): boolean {
     if (fs.existsSync(filePath)) {
         console.log(`✅ [PASS] ${description} found.`);
         return true;
@@ -26,7 +26,7 @@ const envPath = path.join(__dirname, '..', '.env');
 if (checkFile(envPath, '.env configuration file')) {
     // 2. Check .env content
     const envContent = fs.readFileSync(envPath, 'utf8');
-    
+
     // Check SESSION_SECRET
     const sessionSecretMatch = envContent.match(/SESSION_SECRET=(.*)/);
     if (sessionSecretMatch) {
@@ -79,10 +79,10 @@ if (passed) {
     console.log('\x1b[32m%s\x1b[0m', '🎉 SYSTEM READY FOR TAKEOFF');
     if (warnings.length > 0) {
         console.log('\x1b[33m%s\x1b[0m', '⚠️  Warnings (Non-blocking):');
-        warnings.forEach(w => console.log(`   - ${w}`));
+        warnings.forEach((w: string) => console.log(`   - ${w}`));
     }
 } else {
     console.log('\x1b[31m%s\x1b[0m', '⛔ SYSTEM NOT READY. PLEASE FIX ERRORS:');
-    errors.forEach(e => console.log(`   - ${e}`));
+    errors.forEach((e: string) => console.log(`   - ${e}`));
     process.exit(1);
 }

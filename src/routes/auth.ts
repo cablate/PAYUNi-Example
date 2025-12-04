@@ -1,12 +1,13 @@
-import { Router } from "express";
-import { getDatabase } from "../services/database/provider.js";
-import logger from "../utils/logger.js";
+import { Router, Request, Response } from "express";
+import { OAuth2Client } from "google-auth-library";
+import { getDatabase } from "../services/database/provider";
+import logger from "../utils/logger";
 
 /**
  * 安全錯誤處理工具函數
  *
  * 根據環境變數決定是否向客戶端洩露詳細錯誤資訊。
- * 在生產環境中，錯誤訊息被隱藏以保護系統安全。
+ * 在生產環境中,錯誤訊息被隱藏以保護系統安全。
  *
  * @param {Object} res - Express 回應物件
  * @param {number} statusCode - HTTP 狀態碼
@@ -17,7 +18,7 @@ import logger from "../utils/logger.js";
  * @example
  * sendSecureError(res, 400, "無效的授權碼", { code: "invalid_code" });
  */
-function sendSecureError(res, statusCode, publicMessage, logContext = {}) {
+function sendSecureError(res: Response, statusCode: number, publicMessage: string, logContext: any = {}): Response {
   logger.error(publicMessage, logContext);
 
   if (process.env.NODE_ENV === "production") {
@@ -49,7 +50,7 @@ function sendSecureError(res, statusCode, publicMessage, logContext = {}) {
  * const authRoutes = createAuthRoutes(oauth2Client);
  * app.use('/', authRoutes);
  */
-export function createAuthRoutes(oauth2Client) {
+export function createAuthRoutes(oauth2Client: OAuth2Client): Router {
   const router = Router();
 
   /**
@@ -69,7 +70,7 @@ export function createAuthRoutes(oauth2Client) {
    * GET /auth/google
    * // 導向至 Google 授權頁面
    */
-  router.get("/auth/google", (req, res) => {
+  router.get("/auth/google", (req: Request, res: Response) => {
     const authorizeUrl = oauth2Client.generateAuthUrl({
       access_type: "online",
       scope: ["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
@@ -106,19 +107,20 @@ export function createAuthRoutes(oauth2Client) {
    * // Google 進行重導
    * GET /auth/google/callback?code=4/0AXym.../scope=...
    */
-  router.get("/auth/google/callback", async (req, res) => {
+  router.get("/auth/google/callback", async (req: Request, res: Response): Promise<void> => {
     try {
       const { code } = req.query;
       if (!code) {
         logger.error("Google 回調缺少授權碼");
-        return sendSecureError(res, 400, "Google 登入失敗：缺少授權碼");
+        sendSecureError(res, 400, "Google 登入失敗：缺少授權碼");
+        return;
       }
 
-      const { tokens } = await oauth2Client.getToken(code);
+      const { tokens } = await oauth2Client.getToken(code as string);
       oauth2Client.setCredentials(tokens);
 
       const ticket = await oauth2Client.verifyIdToken({
-        idToken: tokens.id_token,
+        idToken: tokens.id_token as string,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
 
@@ -126,43 +128,44 @@ export function createAuthRoutes(oauth2Client) {
 
       // 整合使用者資料庫
       const db = getDatabase();
-      let user = await db.findUser(payload.sub);
+      let user = await db.findUser(payload!.sub);
 
       if (!user) {
         // 建立新使用者
         const newUser = {
-          id: payload.sub,
-          email: payload.email,
-          name: payload.name,
-          picture: payload.picture,
+          id: payload!.sub,
+          email: payload!.email,
+          name: payload!.name,
+          picture: payload!.picture,
         };
         await db.createUser(newUser);
         user = newUser;
       } else {
         // 更新登入時間
-        await db.updateUserLogin(payload.sub);
+        await db.updateUserLogin(payload!.sub);
       }
 
       // 取得使用者權益
-      const entitlements = await db.getUserEntitlements(payload.sub);
+      const entitlements = await db.getUserEntitlements(payload!.sub);
 
       req.session.user = {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        picture: payload.picture,
+        id: payload!.sub,
+        email: payload!.email!,
+        name: payload!.name!,
+        picture: payload!.picture!,
         entitlements: entitlements, // 儲存權益到 Session
       };
 
       req.session.save((err) => {
         if (err) {
           logger.error("Session 儲存失敗", { errorMessage: err.message, sessionID: req.sessionID });
-          return sendSecureError(res, 500, "Session 儲存失敗", { message: err.message });
+          sendSecureError(res, 500, "Session 儲存失敗", { message: err.message });
+          return;
         }
-        logger.info("使用者登入成功並儲存 Session", { userId: payload.sub, email: payload.email });
+        logger.info("使用者登入成功並儲存 Session", { userId: payload!.sub, email: payload!.email });
         res.redirect("/");
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Google 認證回調失敗", {
         errorMessage: error.message,
         stack: error.stack,
@@ -224,24 +227,24 @@ export function createAuthRoutes(oauth2Client) {
    *   "loggedIn": false
    * }
    */
-  router.get("/api/me", async (req, res) => {
+  router.get("/api/me", async (req: Request, res: Response) => {
     if (req.session.user) {
       try {
         // 每次都重新查詢最新的權益狀態
         const db = getDatabase();
         const entitlements = await db.getUserEntitlements(req.session.user.id);
-        
+
         // 更新 Session 中的權益資料
         req.session.user.entitlements = entitlements;
-        
-        res.json({ loggedIn: true, user: req.session.user });
-      } catch (error) {
+
+        return res.json({ loggedIn: true, user: req.session.user });
+      } catch (error: any) {
         logger.error("取得使用者權益失敗", { errorMessage: error.message });
-        // 即使查詢失敗，也回傳基本使用者資訊（但沒有權益）
-        res.json({ loggedIn: true, user: { ...req.session.user, entitlements: [] } });
+        // 即使查詢失敗,也回傳基本使用者資訊（但沒有權益）
+        return res.json({ loggedIn: true, user: { ...req.session.user, entitlements: [] } });
       }
     } else {
-      res.json({ loggedIn: false });
+      return res.json({ loggedIn: false });
     }
   });
 
@@ -266,13 +269,14 @@ export function createAuthRoutes(oauth2Client) {
    * GET /auth/logout
    * // 清除 Session，清除 Cookie，重導至首頁
    */
-  router.get("/auth/logout", (req, res) => {
+  router.get("/auth/logout", (req: Request, res: Response) => {
     logger.info("登出請求", { sessionID: req.sessionID, hasUser: !!req.session?.user });
 
     req.session.destroy((err) => {
       if (err) {
         logger.error("登出錯誤", { errorMessage: err.message });
-        return sendSecureError(res, 500, "登出時發生錯誤");
+        sendSecureError(res, 500, "登出時發生錯誤");
+        return;
       }
       res.clearCookie("sessionId");
       logger.info("使用者登出成功");
