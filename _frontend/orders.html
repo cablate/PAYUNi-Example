@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Orders - Payuni Secure</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/style.css" />
+  </head>
+  <body>
+    <main class="checkout-layout">
+      <!-- Left Column: Value Proposition -->
+      <div class="checkout-summary">
+        <div class="summary-content">
+          <div class="brand-header">
+            <div class="brand-logo">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <span>Payuni Secure</span>
+            </div>
+            <span class="brand-tag">Developer Edition</span>
+          </div>
+
+          <h1 class="summary-title">Transaction History</h1>
+          <p class="summary-desc">
+            View all your purchase records. Every transaction is encrypted and securely stored.
+          </p>
+
+          <ul class="value-props">
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span><strong>Secure Storage</strong> - All data encrypted</span>
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span><strong>Full Records</strong> - Never lose transaction data</span>
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span><strong>Export Available</strong> - Download for accounting</span>
+            </li>
+          </ul>
+
+          <div class="footer-links-left">
+            <a href="/">← Back to Home</a>
+            <a href="/subscriptions.html">My Subscriptions</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Checkout Form -->
+      <div class="checkout-form-container">
+        <div class="form-wrapper">
+
+          <!-- Login Prompt (Hidden by default) -->
+          <div id="loginPrompt" class="checkout-step" style="display: none;">
+            <div class="step-header">
+              <span class="step-number">🔒</span>
+              <h3>Login Required</h3>
+            </div>
+            <p class="step-desc">Please sign in to view your order history.</p>
+            <button id="loginBtn" class="google-login-btn">
+              <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" />
+              Continue with Google
+            </button>
+          </div>
+
+          <!-- Orders Container (Hidden by default) -->
+          <div id="ordersContainer" style="display: none;">
+            
+            <!-- Loading State -->
+            <div id="loadingState" class="checkout-step" style="display: none;">
+              <div class="step-header">
+                <span class="step-number">⏳</span>
+                <h3>Loading Orders...</h3>
+              </div>
+            </div>
+
+            <!-- Orders List (populated by JavaScript) -->
+            <div id="ordersList"></div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="checkout-step" style="display: none;">
+              <div class="step-header">
+                <span class="step-number">📦</span>
+                <h3>No Orders Found</h3>
+              </div>
+              <p class="step-desc">You haven't made any purchases yet.</p>
+              <a href="/" class="pay-button-large" style="text-decoration: none; display: inline-block; margin-top: 16px;">
+                Browse Products
+              </a>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- Loading Modal -->
+    <div class="loading-modal" id="loading-modal">
+      <div class="spinner"></div>
+    </div>
+
+    <script src="/public/orders.js" type="module"></script>
+  </body>
+</html>
