@@ -20,6 +20,7 @@
  */
 
 import logger from "../utils/logger.js";
+import { PaymentErrors } from "../utils/errors.js";
 import { getDatabase } from "./database/provider.js";
 
 // ========================================
@@ -42,6 +43,10 @@ import { getDatabase } from "./database/provider.js";
  *   console.log('找到現有訂單', existingOrder.tradeNo);
  * }
  */
+/**
+ * 查詢現有的未完成訂單
+ * @throws {PaymentError} 資料庫查詢失敗時拋出（可重試）
+ */
 export async function findExistingOrder(userEmail, productID) {
   try {
     if (!userEmail || !productID) {
@@ -53,7 +58,7 @@ export async function findExistingOrder(userEmail, productID) {
     const order = await db.findPendingOrder(userEmail, productID);
 
     if (order) {
-      logger.info("找到現有未完成訂單，將重複使用", {
+      logger.info("✓ 找到現有未完成訂單，將重複使用", {
         tradeNo: order.tradeNo,
         email: userEmail,
         productID,
@@ -64,13 +69,18 @@ export async function findExistingOrder(userEmail, productID) {
     logger.info("沒有找到現有訂單", { email: userEmail, productID });
     return null;
   } catch (error) {
-    logger.error("查詢現有訂單失敗", {
+    logger.error("❌ 查詢現有訂單失敗", {
       email: userEmail,
       productID,
       error: error.message,
     });
-    // 查詢失敗不應該阻擋後續流程，返回 null 讓流程繼續
-    return null;
+    // 拋出可重試的錯誤，讓上層決定是否重試
+    throw PaymentErrors.DatabaseQueryFailed({
+      operation: 'findExistingOrder',
+      userEmail,
+      productID,
+      originalError: error.message,
+    });
   }
 }
 
@@ -107,6 +117,10 @@ export async function findExistingOrder(userEmail, productID) {
  * };
  * const success = await createOrder(orderData);
  */
+/**
+ * 建立新訂單
+ * @throws {PaymentError} 驗證失敗或資料庫錯誤時拋出
+ */
 export async function createOrder(orderData) {
   try {
     // 驗證必要欄位
@@ -121,8 +135,11 @@ export async function createOrder(orderData) {
 
     for (const field of requiredFields) {
       if (!orderData[field]) {
-        logger.error(`建立訂單失敗：缺少必要欄位 ${field}`, { orderData });
-        return false;
+        logger.error(`❌ 建立訂單失敗：缺少必要欄位 ${field}`, { orderData });
+        throw PaymentErrors.BadRequest(`缺少必要欄位: ${field}`, {
+          operation: 'createOrder',
+          missingField: field,
+        });
       }
     }
 
@@ -145,7 +162,7 @@ export async function createOrder(orderData) {
     const success = await db.createOrder(formattedData);
 
     if (success) {
-      logger.info("訂單已建立", {
+      logger.info("✓ 訂單已建立", {
         tradeNo: formattedData.tradeNo,
         email: formattedData.email,
         productID: formattedData.productID,
@@ -153,17 +170,29 @@ export async function createOrder(orderData) {
       });
       return true;
     } else {
-      logger.error("資料庫建立訂單失敗", {
+      logger.error("❌ 資料庫建立訂單失敗", {
         tradeNo: formattedData.tradeNo,
       });
-      return false;
+      throw PaymentErrors.DatabaseUpdateFailed({
+        operation: 'createOrder',
+        tradeNo: formattedData.tradeNo,
+      });
     }
   } catch (error) {
-    logger.error("建立訂單異常", {
-      tradeNo: orderData.tradeNo,
+    // 如果已是 PaymentError，直接拋出
+    if (error.name === 'PaymentError') {
+      throw error;
+    }
+
+    logger.error("❌ 建立訂單異常", {
+      tradeNo: orderData?.tradeNo,
       error: error.message,
     });
-    return false;
+    throw PaymentErrors.DatabaseUpdateFailed({
+      operation: 'createOrder',
+      tradeNo: orderData?.tradeNo,
+      originalError: error.message,
+    });
   }
 }
 
@@ -195,12 +224,18 @@ export async function createOrder(orderData) {
  * };
  * const success = await updateOrder(updateData);
  */
+/**
+ * 更新訂單狀態
+ * @throws {PaymentError} 驗證失敗或資料庫錯誤時拋出
+ */
 export async function updateOrder(updateData) {
   try {
     // 驗證必要欄位
     if (!updateData.MerTradeNo) {
-      logger.error("更新訂單失敗：缺少訂單編號", { updateData });
-      return false;
+      logger.error("❌ 更新訂單失敗：缺少訂單編號", { updateData });
+      throw PaymentErrors.BadRequest("缺少訂單編號", {
+        operation: 'updateOrder',
+      });
     }
 
     // 更新資料庫
@@ -208,24 +243,36 @@ export async function updateOrder(updateData) {
     const success = await db.updateOrder(updateData);
 
     if (success) {
-      logger.info("訂單已更新", {
+      logger.info("✓ 訂單已更新", {
         tradeNo: updateData.MerTradeNo,
         status: updateData.Status,
         tradeSeq: updateData.TradeSeq,
       });
       return true;
     } else {
-      logger.error("資料庫更新訂單失敗", {
+      logger.error("❌ 資料庫更新訂單失敗", {
         tradeNo: updateData.MerTradeNo,
       });
-      return false;
+      throw PaymentErrors.DatabaseUpdateFailed({
+        operation: 'updateOrder',
+        tradeNo: updateData.MerTradeNo,
+      });
     }
   } catch (error) {
-    logger.error("更新訂單異常", {
-      tradeNo: updateData.MerTradeNo,
+    // 如果已是 PaymentError，直接拋出
+    if (error.name === 'PaymentError') {
+      throw error;
+    }
+
+    logger.error("❌ 更新訂單異常", {
+      tradeNo: updateData?.MerTradeNo,
       error: error.message,
     });
-    return false;
+    throw PaymentErrors.DatabaseUpdateFailed({
+      operation: 'updateOrder',
+      tradeNo: updateData?.MerTradeNo,
+      originalError: error.message,
+    });
   }
 }
 
@@ -245,6 +292,10 @@ export async function updateOrder(updateData) {
  *   console.log('訂單狀態', order.status);
  * }
  */
+/**
+ * 根據訂單編號查詢訂單
+ * @throws {PaymentError} 資料庫查詢失敗時拋出（可重試）
+ */
 export async function getOrderByTradeNo(tradeNo) {
   try {
     if (!tradeNo) {
@@ -256,18 +307,22 @@ export async function getOrderByTradeNo(tradeNo) {
     const order = await db.getOrderByTradeNo(tradeNo);
 
     if (order) {
-      logger.info("找到訂單", { tradeNo });
+      logger.info("✓ 找到訂單", { tradeNo });
       return order;
     }
 
     logger.warn("找不到訂單", { tradeNo });
     return null;
   } catch (error) {
-    logger.error("查詢訂單失敗", {
+    logger.error("❌ 查詢訂單失敗", {
       tradeNo,
       error: error.message,
     });
-    return null;
+    throw PaymentErrors.DatabaseQueryFailed({
+      operation: 'getOrderByTradeNo',
+      tradeNo,
+      originalError: error.message,
+    });
   }
 }
 

@@ -53,7 +53,7 @@ export class WebhookProcessor {
    * 完整流程：
    * 1. 驗證金額一致性
    * 2. 更新訂單狀態
-   * 3. 授予使用者權益（非關鍵，失敗不阻擋）
+   * 3. 授予使用者權益（帶重試機制，失敗有補償）
    * 4. 記錄訂閱扣款（如果是訂閱制）
    *
    * @param {Object} parsedData - 解析後的 Webhook 資料
@@ -100,23 +100,22 @@ export class WebhookProcessor {
         return updateResult;
       }
 
-      // 步驟 3: 授予使用者權益（非關鍵，失敗不阻擋）
-      try {
-        await this._grantEntitlements(
+      // 步驟 3: 授予使用者權益（帶重試機制，失敗有補償）
+      const entitlementResult = await this._grantEntitlementsWithRetry(
+        tradeNo,
+        isPeriod,
+        parsedData,
+        queryData
+      );
+      if (!entitlementResult.success) {
+        logger.warn("⚠️ 授予權益失敗，已記錄補償任務", {
           tradeNo,
-          isPeriod,
-          parsedData,
-          queryData
-        );
-      } catch (entitlementError) {
-        logger.error("授予權益時發生錯誤（不阻擋主流程）", {
-          tradeNo,
-          errorMessage: entitlementError.message,
+          reason: entitlementResult.reason,
         });
-        // 不阻擋 webhook 回應，因為訂單已更新成功
+        // 訂單已更新，但記錄失敗供後續定期修復
       }
 
-      logger.info("支付業務邏輯處理成功", {
+      logger.info("✓ 支付業務邏輯處理成功", {
         tradeNo,
         status: queryData.tradeStatusText,
         amount: queryData.amount,
@@ -132,12 +131,16 @@ export class WebhookProcessor {
         },
       };
     } catch (error) {
-      logger.error("處理支付業務邏輯失敗", {
+      logger.error("❌ 處理支付業務邏輯失敗", {
         errorMessage: error.message,
+        errorCode: error.errorCode,
+        isRetryable: error.isRetryable,
       });
       return {
         success: false,
         message: "處理失敗",
+        errorCode: error.errorCode,
+        isRetryable: error.isRetryable || false,
       };
     }
   }
@@ -245,8 +248,74 @@ export class WebhookProcessor {
   }
 
   // ========================================
-  // 私有方法 - 權益授予
+  // 私有方法 - 權益授予（帶重試與補償）
   // ========================================
+
+  /**
+   * 授予權益（帶重試機制）
+   * 失敗時會重試 3 次，最終失敗會記錄補償任務供後續修復
+   * @private
+   */
+  async _grantEntitlementsWithRetry(tradeNo, isPeriod, parsedData, queryData) {
+    const MAX_RETRIES = 3;
+    let lastError;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await this._grantEntitlements(tradeNo, isPeriod, parsedData, queryData);
+
+        logger.info(`✓ 權益授予成功（第 ${attempt} 次嘗試）`, { tradeNo });
+        return {
+          success: true,
+          reason: '授予成功',
+        };
+      } catch (error) {
+        lastError = error;
+        logger.warn(
+          `⚠️ 授予權益失敗（第 ${attempt}/${MAX_RETRIES} 次嘗試）`,
+          {
+            tradeNo,
+            attempt,
+            error: error.message,
+          }
+        );
+
+        // 指數退避：1秒 → 2秒 → 4秒
+        if (attempt < MAX_RETRIES) {
+          const delayMs = 1000 * Math.pow(2, attempt - 1);
+          await this._sleep(delayMs);
+        }
+      }
+    }
+
+    // 全部重試失敗，記錄補償任務
+    logger.error(`❌ 權益授予失敗，已記錄補償任務`, {
+      tradeNo,
+      attempts: MAX_RETRIES,
+      lastError: lastError?.message,
+    });
+
+    // 記錄失敗供後續定期修復任務處理
+    try {
+      await this.db.recordFailedEntitlement({
+        tradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
+        amount: queryData.amount,
+        reason: lastError?.message || '未知錯誤',
+        attempt: MAX_RETRIES,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (recordError) {
+      logger.error("記錄補償任務失敗", {
+        tradeNo,
+        error: recordError.message,
+      });
+    }
+
+    return {
+      success: false,
+      reason: `重試 ${MAX_RETRIES} 次後仍失敗: ${lastError?.message}`,
+    };
+  }
 
   /**
    * 授予使用者權益
@@ -347,6 +416,14 @@ export class WebhookProcessor {
       });
       // 不拋出異常，允許主流程繼續
     }
+  }
+
+  /**
+   * 睡眠延遲（用於重試的指數退避）
+   * @private
+   */
+  _sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
