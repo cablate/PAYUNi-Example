@@ -1,6 +1,6 @@
 import axios from "axios";
-import { TURNSTILE_CONFIG } from "../config/constants";
-import logger from "./logger";
+import { TURNSTILE_CONFIG } from "@/config/constants";
+import logger from "@/utils/logger";
 
 /**
  * 驗證 Cloudflare Turnstile 驗證碼

@@ -1,12 +1,12 @@
-import { PaymentError } from "../utils/errors";
-import logger from "../utils/logger";
+import { PaymentError } from "@/utils/errors";
+import logger from "@/utils/logger";
 import type { Request, Response, NextFunction } from "express";
 
 /**
  * 全局錯誤處理中間件
  * 統一處理所有路由拋出的錯誤
  */
-export function errorHandler(err: any, req: Request, res: Response, next: NextFunction): void {
+export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction): void {
   // 處理自定義支付錯誤
   if (err instanceof PaymentError) {
     logger.error("支付錯誤", {

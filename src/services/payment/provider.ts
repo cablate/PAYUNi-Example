@@ -4,8 +4,8 @@
  */
 
 import { PayuniSDK } from "./PayuniSDK";
-import { EXTERNAL_SERVICES, PAYUNI_CONFIG } from "../../config/constants";
-import logger from "../../utils/logger";
+import { EXTERNAL_SERVICES, PAYUNI_CONFIG } from "@/config/constants";
+import logger from "@/utils/logger";
 
 let sdkInstance: PayuniSDK | null = null;
 

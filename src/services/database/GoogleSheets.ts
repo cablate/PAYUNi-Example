@@ -2,7 +2,7 @@ import fs from "fs";
 import { google } from "googleapis";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import logger from "../../utils/logger";
+import logger from "@/utils/logger";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

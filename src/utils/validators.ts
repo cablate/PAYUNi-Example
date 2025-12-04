@@ -1,5 +1,5 @@
 import { body } from "express-validator";
-import { TURNSTILE_CONFIG } from "../config/constants";
+import { TURNSTILE_CONFIG } from "@/config/constants";
 
 /**
  * 支付請求驗證規則（用於 /create-payment 和 /create-subscription）

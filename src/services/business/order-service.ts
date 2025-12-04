@@ -19,9 +19,9 @@
  *   const updated = await updateOrder(updateData);
  */
 
-import logger from "../../utils/logger";
-import { PaymentErrors } from "../../utils/errors";
-import { getDatabase } from "../database/provider";
+import logger from "@/utils/logger";
+import { PaymentErrors } from "@/utils/errors";
+import { getDatabase } from "@/services/database/provider";
 
 interface OrderData {
   tradeNo: string;

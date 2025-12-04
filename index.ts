@@ -4,11 +4,11 @@ import { OAuth2Client } from "google-auth-library";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
-import products from "./src/data/products";
-import logger from "./src/utils/logger";
-import { printEnvironmentConfig, printError, printStartupBanner, printSuccess, printWarning } from "./src/utils/startup";
+import products from "@/data/products";
+import logger from "@/utils/logger";
+import { printEnvironmentConfig, printError, printStartupBanner, printSuccess, printWarning } from "@/utils/startup";
 
-import { GOOGLE_CONFIG, REQUIRED_ENV_VARS, SERVER_CONFIG, SESSION_CONFIG } from "./src/config/constants";
+import { GOOGLE_CONFIG, REQUIRED_ENV_VARS, SERVER_CONFIG, SESSION_CONFIG } from "@/config/constants";
 
 import {
   configureCors,
@@ -17,13 +17,13 @@ import {
   configureRequestLogger,
   createGeneralLimiter,
   createPaymentLimiter,
-} from "./src/middleware/security";
+} from "@/middleware/security";
 
-import { errorHandler } from "./src/middleware/errorHandler";
-import { createAuthRoutes } from "./src/routes/auth";
-import { createOrderRoutes } from "./src/routes/orders";
-import { createPaymentRoutes } from "./src/routes/payment";
-import subscriptionsRouter from "./src/routes/subscriptions";
+import { errorHandler } from "@/middleware/errorHandler";
+import { createAuthRoutes } from "@/routes/auth";
+import { createOrderRoutes } from "@/routes/orders";
+import { createPaymentRoutes } from "@/routes/payment";
+import subscriptionsRouter from "@/routes/subscriptions";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -4,9 +4,9 @@
  */
 
 import express, { Request, Response } from "express";
-import { getDatabase } from "../services/database/provider";
-import { getPayuniSDK } from "../services/payment/provider";
-import logger from "../utils/logger";
+import { getDatabase } from "@/services/database/provider";
+import { getPayuniSDK } from "@/services/payment/provider";
+import logger from "@/utils/logger";
 
 const router = express.Router();
 

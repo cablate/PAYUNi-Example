@@ -17,8 +17,8 @@
  *   await processor.processPayment(parsedData, queryData);
  */
 
-import logger from "../../utils/logger";
-import { PaymentErrors } from "../../utils/errors";
+import logger from "@/utils/logger";
+import { PaymentErrors } from "@/utils/errors";
 
 interface Database {
   updateOrder(updateData: any): Promise<boolean>;

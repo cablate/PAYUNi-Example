@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import { getDatabase } from "../services/database/provider";
-import logger from "../utils/logger";
+import { getDatabase } from "@/services/database/provider";
+import logger from "@/utils/logger";
 
 /**
  * 安全錯誤處理工具函數

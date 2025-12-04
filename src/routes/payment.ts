@@ -1,24 +1,24 @@
 import crypto from "crypto";
 import { Router, Request, Response, NextFunction } from "express";
-import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "../config/constants";
-import { getDatabase } from "../services/database/provider";
+import { ONE_TIME_TOKEN_EXPIRY, PAYUNI_CONFIG } from "@/config/constants";
+import { getDatabase } from "@/services/database/provider";
 import {
   createOrder,
   findExistingOrder,
-} from "../services/business/order-service";
-import { getPayuniSDK } from "../services/payment/provider";
-import { createPayuniGateway } from "../services/payment/payuni-gateway";
-import { createWebhookHandler } from "../services/orchestration/webhook-handler";
-import { createWebhookProcessor } from "../services/business/webhook-processor";
-import { PaymentErrors } from "../utils/errors";
-import logger from "../utils/logger";
+} from "@/services/business/order-service";
+import { getPayuniSDK } from "@/services/payment/provider";
+import { createPayuniGateway } from "@/services/payment/payuni-gateway";
+import { createWebhookHandler } from "@/services/orchestration/webhook-handler";
+import { createWebhookProcessor } from "@/services/business/webhook-processor";
+import { PaymentErrors } from "@/utils/errors";
+import logger from "@/utils/logger";
 import {
   buildOrderData,
   generateTradeNo,
   validatePaymentRequest,
-} from "../utils/payment-helpers";
-import { verifyTurnstile } from "../utils/turnstile";
-import { createPaymentValidation } from "../utils/validators";
+} from "@/utils/payment-helpers";
+import { verifyTurnstile } from "@/utils/turnstile";
+import { createPaymentValidation } from "@/utils/validators";
 
 /**
  * 建立支付路由
@@ -350,7 +350,6 @@ export function createPaymentRoutes(paymentLimiter: any, oneTimeTokens: Map<stri
   router.post("/payment-return", async (req: Request, res: Response) => {
     try {
       logger.info("接收 Payuni 返回請求");
-      const { EncryptInfo, HashInfo, Status } = req.body;
 
       // 驗證和解析（使用 Gateway）
       const sdk = getPayuniSDK();

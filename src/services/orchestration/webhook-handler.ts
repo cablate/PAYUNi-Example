@@ -18,7 +18,7 @@
  *   const result = await handler.processWebhook(webhookBody);
  */
 
-import logger from "../../utils/logger";
+import logger from "@/utils/logger";
 
 interface PaymentGateway {
   verifyWebhook(webhookData: WebhookData): boolean;
@@ -191,7 +191,7 @@ export class WebhookHandler {
    * @returns {Object} 驗證結果
    */
   private _validateWebhookData(webhookData: WebhookData): ProcessResult {
-    const { EncryptInfo, HashInfo, Status } = webhookData;
+    const { Status } = webhookData;
 
     // 檢查支付狀態
     if (Status !== "SUCCESS") {

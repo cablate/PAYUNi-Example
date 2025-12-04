@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
-import { getDatabase } from "../services/database/provider";
-import logger from "../utils/logger";
+import { getDatabase } from "@/services/database/provider";
+import logger from "@/utils/logger";
 
 /**
  * 安全錯誤處理工具函數
@@ -70,7 +70,7 @@ export function createAuthRoutes(oauth2Client: OAuth2Client): Router {
    * GET /auth/google
    * // 導向至 Google 授權頁面
    */
-  router.get("/auth/google", (req: Request, res: Response) => {
+  router.get("/auth/google", (_req: Request, res: Response) => {
     const authorizeUrl = oauth2Client.generateAuthUrl({
       access_type: "online",
       scope: ["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],

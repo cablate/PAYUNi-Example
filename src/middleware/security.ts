@@ -2,8 +2,8 @@ import cors from "cors";
 import csrf from "csurf";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { CORS_ALLOWED_ORIGINS, CSRF_EXCLUDED_PATHS, RATE_LIMIT_CONFIG } from "../config/constants";
-import logger from "../utils/logger";
+import { CORS_ALLOWED_ORIGINS, CSRF_EXCLUDED_PATHS, RATE_LIMIT_CONFIG } from "@/config/constants";
+import logger from "@/utils/logger";
 import type { Express, Request, Response, NextFunction } from "express";
 
 /**

@@ -18,7 +18,7 @@
  *   const parsedData = gateway.parseWebhook(webhookData);
  */
 
-import logger from "../../utils/logger";
+import logger from "@/utils/logger";
 
 interface PayuniSDK {
   generatePaymentInfo(

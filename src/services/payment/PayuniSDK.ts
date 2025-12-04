@@ -12,8 +12,8 @@
 
 import axios from "axios";
 import querystring from "querystring";
-import { decrypt, encrypt, sha256 } from "../../utils/crypto";
-import logger from "../../utils/logger";
+import { decrypt, encrypt, sha256 } from "@/utils/crypto";
+import logger from "@/utils/logger";
 
 interface SDKConfig {
   merchantId: string;
