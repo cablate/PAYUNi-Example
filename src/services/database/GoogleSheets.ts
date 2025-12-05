@@ -156,27 +156,25 @@ const COLUMN_INDICES_ENTITLEMENTS = {
 // ========================================
 const SHEET_PERIOD_PAYMENTS = "訂閱扣款記錄";
 const HEADERS_PERIOD_PAYMENTS = [
-  "扣款ID",          // A (0)
-  "續期收款單號",    // B (1) PeriodTradeNo
-  "原始訂單號",      // C (2) 對應 Orders 表的 _0 訂單
-  "期數",           // D (3) 1, 2, 3...
-  "交易序號",        // E (4) PayUNi TradeNo
-  "金額",           // F (5)
-  "狀態",           // G (6)
-  "扣款時間",        // H (7)
-  "備註",           // I (8)
+  "續期收款單號",    // A (0) PeriodTradeNo
+  "原始訂單號",      // B (1) 對應 Orders 表的 _0 訂單
+  "期數",           // C (2) 1, 2, 3...
+  "交易序號",        // D (3) PayUNi TradeNo
+  "金額",           // E (4)
+  "狀態",           // F (5)
+  "扣款時間",        // G (6)
+  "備註",           // H (7)
 ];
 
 const COLUMN_INDICES_PERIOD_PAYMENTS = {
-  paymentId: 0,
-  periodTradeNo: 1,
-  baseOrderNo: 2,
-  sequenceNo: 3,
-  tradeSeq: 4,
-  amount: 5,
-  status: 6,
-  paymentTime: 7,
-  remark: 8,
+  periodTradeNo: 0,
+  baseOrderNo: 1,
+  sequenceNo: 2,
+  tradeSeq: 3,
+  amount: 4,
+  status: 5,
+  paymentTime: 6,
+  remark: 7,
 };
 
 // ========================================
@@ -568,7 +566,7 @@ export class GoogleSheetsOrderDatabase {
         }
       }
 
-      logger.info("找不到訂單", { tradeNo });
+      logger.info("3找不到訂單", { tradeNo });
       return null;
     } catch (error: any) {
       logger.warn("查詢訂單失敗", { tradeNo, error: error.message });
@@ -902,7 +900,8 @@ export class GoogleSheetsOrderDatabase {
       let periodTradeNo = "";
       if (product.type === "subscription") {
         try {
-          const order = await this.getOrderByTradeNo(orderId);
+          const searchTradeNo = orderId.split("_")[0];
+          const order = await this.getOrderByTradeNo(searchTradeNo);
           if (order && order.periodTradeNo) {
             periodTradeNo = order.periodTradeNo;
           }
@@ -1043,7 +1042,11 @@ export class GoogleSheetsOrderDatabase {
   // ========================================
 
   /**
-   * 記錄訂閱期數扣款
+   * 記錄訂閱期數扣款（幂等性：避免重複記錄）
+   *
+   * 防止 Webhook 重試導致重複記錄的邏輯：
+   * 1. 先檢查是否已存在相同的 periodTradeNo + tradeSeq 組合
+   * 2. 若存在則更新原記錄，否則新增
    */
   async recordPeriodPayment(paymentData: any): Promise<boolean> {
     const sheets = getSheetsClient();
@@ -1061,28 +1064,118 @@ export class GoogleSheetsOrderDatabase {
         remark = "",
       } = paymentData;
 
-      const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-
-      const row = [
-        paymentId,
+      // 步驟 1: 查詢是否已有相同的記錄（幂等性檢查）
+      logger.debug("檢查重複記錄", {
         periodTradeNo,
-        baseOrderNo,
-        sequenceNo,
         tradeSeq,
-        amount,
-        status,
-        paymentTime || new Date().toISOString(),
-        remark,
-      ];
-
-      await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: `${SHEET_PERIOD_PAYMENTS}!A:I`,
-        valueInputOption: "RAW",
-        requestBody: { values: [row] },
+        periodTradeNoType: typeof periodTradeNo,
+        tradeSeqType: typeof tradeSeq,
       });
 
-      logger.info("訂閱扣款記錄成功", { periodTradeNo, sequenceNo, amount });
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${SHEET_PERIOD_PAYMENTS}!A:H`,
+      });
+
+      const rows = response.data.values || [];
+      let existingRowIndex = -1;
+
+      // 診斷：打印傳入的搜尋條件
+      logger.info("開始搜尋重複記錄", {
+        searchPeriodTradeNo: periodTradeNo,
+        searchBaseOrderNo: baseOrderNo,
+        totalRows: rows.length,
+        periodTradeNoType: typeof periodTradeNo,
+        baseOrderNoType: typeof baseOrderNo,
+      });
+
+      // 尋找相同的記錄：用 periodTradeNo + baseOrderNo 組合做去重
+      // 這樣才能正確識別同一筆訂期扣款（即使 tradeSeq 不同也算重複）
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const dbPeriodTradeNo = row[COLUMN_INDICES_PERIOD_PAYMENTS.periodTradeNo];
+        const dbBaseOrderNo = row[COLUMN_INDICES_PERIOD_PAYMENTS.baseOrderNo];
+
+        // 診斷：打印每一行的資料（前5行或匹配的行）
+        if (i <= 5 || String(dbPeriodTradeNo) === String(periodTradeNo)) {
+          logger.info(`【診斷】第 ${i} 行資料`, {
+            dbPeriodTradeNo,
+            dbBaseOrderNo,
+            dbPeriodTradeNoType: typeof dbPeriodTradeNo,
+            dbBaseOrderNoType: typeof dbBaseOrderNo,
+            searchPeriodTradeNo: periodTradeNo,
+            searchBaseOrderNo: baseOrderNo,
+            periodTradeNoMatch: String(dbPeriodTradeNo) === String(periodTradeNo),
+            baseOrderNoMatch: String(dbBaseOrderNo) === String(baseOrderNo),
+            bothMatch: String(dbPeriodTradeNo) === String(periodTradeNo) && String(dbBaseOrderNo) === String(baseOrderNo),
+          });
+        }
+
+        // 檢查是否為相同的訂期扣款
+        if (String(dbPeriodTradeNo) === String(periodTradeNo) &&
+            String(dbBaseOrderNo) === String(baseOrderNo)) {
+          existingRowIndex = i + 1; // 轉為 1-based 行號
+          logger.info("✓ 找到重複記錄（相同 periodTradeNo + baseOrderNo）", {
+            existingRowIndex,
+            periodTradeNo,
+            baseOrderNo,
+            sequenceNo,
+          });
+          break;
+        }
+      }
+
+      if (existingRowIndex === -1) {
+        logger.debug("未找到重複記錄，將新增", {
+          periodTradeNo,
+          tradeSeq,
+          totalRows: rows.length,
+        });
+      }
+
+      const newRow = [
+        periodTradeNo,     // A - 續期收款單號
+        baseOrderNo,       // B - 原始訂單號
+        sequenceNo,        // C - 期數
+        tradeSeq,          // D - 交易序號
+        amount,            // E - 金額
+        status,            // F - 狀態
+        paymentTime || new Date().toISOString(),  // G - 扣款時間
+        remark,            // H - 備註
+      ];
+
+      if (existingRowIndex !== -1) {
+        // 步驟 2a: 已存在，則更新記錄（Webhook 重試的情況）
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${SHEET_PERIOD_PAYMENTS}!A${existingRowIndex}:H${existingRowIndex}`,
+          valueInputOption: "RAW",
+          requestBody: { values: [newRow] },
+        });
+
+        logger.info("訂閱扣款記錄已更新（Webhook 重試）", {
+          periodTradeNo,
+          sequenceNo,
+          tradeSeq,
+          amount,
+        });
+      } else {
+        // 步驟 2b: 不存在，則新增記錄
+        await sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `${SHEET_PERIOD_PAYMENTS}!A:H`,
+          valueInputOption: "RAW",
+          requestBody: { values: [newRow] },
+        });
+
+        logger.info("訂閱扣款記錄已新增", {
+          periodTradeNo,
+          sequenceNo,
+          tradeSeq,
+          amount,
+        });
+      }
+
       return true;
     } catch (error: any) {
       logger.error("記錄訂閱扣款失敗", { error: error.message });
@@ -1100,7 +1193,7 @@ export class GoogleSheetsOrderDatabase {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_PERIOD_PAYMENTS}!A:I`,
+        range: `${SHEET_PERIOD_PAYMENTS}!A:H`,
       });
 
       const rows = response.data.values || [];
@@ -1110,7 +1203,6 @@ export class GoogleSheetsOrderDatabase {
         const row = rows[i];
         if (row[COLUMN_INDICES_PERIOD_PAYMENTS.baseOrderNo] === baseOrderNo) {
           payments.push({
-            paymentId: row[COLUMN_INDICES_PERIOD_PAYMENTS.paymentId],
             periodTradeNo: row[COLUMN_INDICES_PERIOD_PAYMENTS.periodTradeNo],
             baseOrderNo: row[COLUMN_INDICES_PERIOD_PAYMENTS.baseOrderNo],
             sequenceNo: parseInt(row[COLUMN_INDICES_PERIOD_PAYMENTS.sequenceNo]) || 0,

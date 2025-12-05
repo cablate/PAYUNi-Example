@@ -45,6 +45,7 @@ interface ParsedData {
   TradeAmt?: number;
   PeriodAmt?: number;
   PeriodTradeNo?: string;
+  PeriodOrderNo?: string;  // 完整訂單號（帶期數）：xxxxx_0, xxxxx_1 等
 }
 
 interface QueryData {
@@ -121,7 +122,8 @@ export class WebhookProcessor {
    */
   async processPayment(parsedData: ParsedData, queryData: QueryData): Promise<ProcessResult> {
     try {
-      const tradeNo = parsedData.MerTradeNo;
+      // 使用完整的訂單號（如果是訂期就用帶期數的 PeriodOrderNo，否則用基礎訂單號）
+      const tradeNo = parsedData.PeriodOrderNo || parsedData.MerTradeNo;
       const isPeriod = (parsedData.PeriodAmt && parsedData.PeriodAmt > 0) || !!parsedData.PeriodTradeNo;
 
       logger.info("開始處理支付業務邏輯", {
@@ -413,7 +415,7 @@ export class WebhookProcessor {
     // 查詢訂單
     const order = await this.db.getOrderByTradeNo(searchTradeNo);
     if (!order) {
-      throw PaymentErrors.NotFound('找不到訂單', {
+      throw PaymentErrors.NotFound('2找不到訂單', {
         tradeNo: searchTradeNo,
         originalTradeNo: tradeNo,
       });
@@ -435,19 +437,20 @@ export class WebhookProcessor {
       });
     }
 
-    // 授予權益
-    await this.db.grantEntitlement(user.googleId, product, searchTradeNo);
+    // 授予權益（傳入完整的 tradeNo，包含期數 _0, _1 等，便於追溯）
+    await this.db.grantEntitlement(user.googleId, product, tradeNo);
     logger.info("✓ 權益已授予", {
       userId: user.googleId,
       productId: product.id,
-      tradeNo: searchTradeNo,
+      sourceOrderNo: tradeNo,
+      baseOrderNo: searchTradeNo,
     });
 
     // 記錄訂閱扣款（如果是訂閱制）
     if (isPeriod) {
       await this._recordPeriodPayment(
         tradeNo,
-        searchTradeNo,
+        tradeNo,  // ← 改為傳入完整 tradeNo（包含 _0, _1 等），而不是 searchTradeNo
         parsedData,
         queryData
       );
@@ -456,22 +459,23 @@ export class WebhookProcessor {
 
   /**
    * 記錄訂閱扣款
+   * 記錄完整的訂單號（含期數），便於追溯該期扣款是賦予給哪一個特定訂單
    * @private
    */
   private async _recordPeriodPayment(
-    tradeNo: string,
-    searchTradeNo: string,
+    fullTradeNo: string,
+    baseOrderNo: string,
     parsedData: ParsedData,
     queryData: QueryData
   ): Promise<void> {
     try {
       const periodTradeNo = parsedData.PeriodTradeNo || "";
-      const sequenceMatch = tradeNo.match(/_(\d+)$/);
+      const sequenceMatch = fullTradeNo.match(/_(\d+)$/);
       const sequenceNo = sequenceMatch ? parseInt(sequenceMatch[1]) : 0;
 
       await this.db.recordPeriodPayment({
         periodTradeNo: periodTradeNo,
-        baseOrderNo: searchTradeNo,
+        baseOrderNo: baseOrderNo,  // ← 現在儲存完整的訂單號 (xxxxx_0, xxxxx_1 等)
         sequenceNo: sequenceNo,
         tradeSeq: queryData.tradeNo,
         amount: queryData.amount,
@@ -484,13 +488,14 @@ export class WebhookProcessor {
       });
 
       logger.info("✓ 訂閱扣款已記錄", {
-        periodTradeNo,
+        baseOrderNo,
         sequenceNo,
+        periodTradeNo,
         amount: queryData.amount,
       });
     } catch (error: any) {
       logger.error("記錄訂閱扣款失敗", {
-        tradeNo,
+        baseOrderNo,
         error: error.message,
       });
       // 不拋出異常，允許主流程繼續

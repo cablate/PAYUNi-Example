@@ -332,7 +332,7 @@ export async function getOrderByTradeNo(tradeNo: string): Promise<any | null> {
       return order;
     }
 
-    logger.warn("找不到訂單", { tradeNo });
+    logger.warn("1找不到訂單", { tradeNo });
     return null;
   } catch (error: any) {
     logger.error("❌ 查詢訂單失敗", {
