@@ -51,6 +51,9 @@ interface PeriodInfo {
   tradeStatusText: string;
   tradeNo: string;
   isPaid: boolean;
+  status?: string;
+  authAmt?: number;
+  thisPeriod?: string;
 }
 
 interface ModifyPeriodStatusOptions {
@@ -498,9 +501,9 @@ export class PayuniSDK {
 
       logger.info("續期訂單查詢成功", {
         periodTradeNo,
-        status: periodInfo.status,
-        authAmt: periodInfo.authAmt,
-        thisPeriod: periodInfo.thisPeriod,
+        status: periodInfo.tradeStatusText,
+        amount: periodInfo.amount,
+        isPaid: periodInfo.isPaid,
       });
 
       return {

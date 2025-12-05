@@ -205,7 +205,7 @@ export class WebhookProcessor {
    * @private
    */
   private _validateAmount(parsedData: ParsedData, queryData: QueryData, tradeNo: string): ProcessResult {
-    const webhookAmount = parseInt(String(parsedData.TradeAmt || parsedData.PeriodAmt || parsedData.Amount || 0));
+    const webhookAmount = parseInt(String(parsedData.TradeAmt || parsedData.PeriodAmt || 0));
     const queryAmount = parseInt(String(queryData.amount));
 
     if (queryAmount !== webhookAmount) {
