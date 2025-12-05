@@ -1096,21 +1096,6 @@ export class GoogleSheetsOrderDatabase {
         const dbPeriodTradeNo = row[COLUMN_INDICES_PERIOD_PAYMENTS.periodTradeNo];
         const dbBaseOrderNo = row[COLUMN_INDICES_PERIOD_PAYMENTS.baseOrderNo];
 
-        // 診斷：打印每一行的資料（前5行或匹配的行）
-        if (i <= 5 || String(dbPeriodTradeNo) === String(periodTradeNo)) {
-          logger.info(`【診斷】第 ${i} 行資料`, {
-            dbPeriodTradeNo,
-            dbBaseOrderNo,
-            dbPeriodTradeNoType: typeof dbPeriodTradeNo,
-            dbBaseOrderNoType: typeof dbBaseOrderNo,
-            searchPeriodTradeNo: periodTradeNo,
-            searchBaseOrderNo: baseOrderNo,
-            periodTradeNoMatch: String(dbPeriodTradeNo) === String(periodTradeNo),
-            baseOrderNoMatch: String(dbBaseOrderNo) === String(baseOrderNo),
-            bothMatch: String(dbPeriodTradeNo) === String(periodTradeNo) && String(dbBaseOrderNo) === String(baseOrderNo),
-          });
-        }
-
         // 檢查是否為相同的訂期扣款
         if (String(dbPeriodTradeNo) === String(periodTradeNo) &&
             String(dbBaseOrderNo) === String(baseOrderNo)) {
