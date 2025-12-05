@@ -46,6 +46,13 @@ interface TradeInfo {
   isPaid: boolean;
 }
 
+interface PeriodInfo {
+  amount: number;
+  tradeStatusText: string;
+  tradeNo: string;
+  isPaid: boolean;
+}
+
 interface ModifyPeriodStatusOptions {
   reviseTradeStatus: string;
   periodTradeNo: string;
@@ -403,6 +410,117 @@ export class PayuniSDK {
   }
 
   /**
+   * 查詢續期訂單狀態
+   * 調用 Payuni 續期查詢 API 以確認續期交易狀態
+   * @param {string} periodTradeNo - 續期交易編號
+   * @returns {Promise<Object>} 續期訂單查詢結果
+   */
+  async queryPeriodStatus(periodTradeNo: string): Promise<any> {
+    try {
+      logger.info("正在查詢續期訂單狀態", { periodTradeNo });
+
+      // 構建查詢參數
+      const timestamp = Math.round(new Date().getTime() / 1000);
+      const queryData = {
+        MerID: this.merchantId,
+        PeriodTradeNo: periodTradeNo,
+        Timestamp: timestamp,
+      };
+
+      // 將查詢參數加密
+      const plaintext = querystring.stringify(queryData);
+      const encryptInfo = this._encrypt(plaintext);
+      const hashInfo = this._hash(encryptInfo);
+
+      // 構建請求體
+      const requestBody = {
+        MerID: this.merchantId,
+        Version: "1.0",
+        EncryptInfo: encryptInfo,
+        HashInfo: hashInfo,
+      };
+
+      // 發送查詢請求
+      const response = await axios.post(`${this.apiUrl}/api/period/query`, requestBody, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "payuni-sdk",
+        },
+        timeout: 10000, // 10 秒超時
+      });
+
+      logger.info("續期查詢 API 回應", {
+        periodTradeNo,
+        status: response.data?.Status,
+      });
+
+      // 驗證回應
+      if (!response.data?.Status || response.data.Status !== "SUCCESS") {
+        logger.warn("查詢續期訂單失敗", {
+          periodTradeNo,
+          status: response.data?.Status,
+          message: response.data?.Message,
+        });
+        return {
+          success: false,
+          error: response.data?.Message || "查詢失敗",
+          status: response.data?.Status,
+        };
+      }
+
+      // 解密回應的 EncryptInfo
+      const decryptedStr = this._decrypt(response.data.EncryptInfo);
+      const resultData = querystring.parse(decryptedStr);
+
+      logger.info("解密後的續期查詢結果", { resultData });
+
+      // 驗證回應的 Hash
+      const calculatedHash = this._hash(response.data.EncryptInfo);
+      if (calculatedHash !== response.data.HashInfo) {
+        logger.warn("續期查詢結果 Hash 驗證失敗", { periodTradeNo });
+        return {
+          success: false,
+          error: "查詢結果驗證失敗",
+          hashMismatch: true,
+        };
+      }
+
+      // 解析續期結果
+      const periodInfo = this._parsePeriodResult(resultData);
+
+      if (!periodInfo) {
+        logger.warn("無法解析續期查詢結果", { resultData });
+        return {
+          success: false,
+          error: "結果格式不符",
+        };
+      }
+
+      logger.info("續期訂單查詢成功", {
+        periodTradeNo,
+        status: periodInfo.status,
+        authAmt: periodInfo.authAmt,
+        thisPeriod: periodInfo.thisPeriod,
+      });
+
+      return {
+        success: true,
+        data: periodInfo,
+        rawData: resultData,
+      };
+    } catch (error: any) {
+      logger.error("查詢續期訂單異常", {
+        periodTradeNo,
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * 解析 Payuni 扁平化的查詢結果
    * 格式：Result[0][MerTradeNo], Result[0][TradeNo] 等
    * @private
@@ -482,6 +600,53 @@ export class PayuniSDK {
       dataSource: result.DataSource,
       isPaid: parseInt(result.TradeStatus) === 1,
     };
+  }
+
+  /**
+   * 解析續期查詢結果（只提取驗證用的最小資料）
+   * @private
+   * @param {Object} resultData - 續期查詢結果資料
+   * @returns {Object|null} 解析後的驗證資料
+   */
+  private _parsePeriodResult(resultData: any): PeriodInfo | null {
+    try {
+      logger.info("解析續期查詢結果（驗證用）", {
+        status: resultData.Status,
+        message: resultData.Message
+      });
+
+      // 提取當前期數資料 Result[0][xxx]
+      const currentPeriodData: any = {};
+      Object.keys(resultData).forEach((key) => {
+        const match = key.match(/^Result\[0\]\[(\w+)\]$/);
+        if (match) {
+          const fieldName = match[1];
+          currentPeriodData[fieldName] = resultData[key];
+        }
+      });
+
+      // 檢查是否有當前期數資料
+      if (Object.keys(currentPeriodData).length === 0) {
+        logger.warn("無法從續期查詢結果中提取當前期數資料");
+        return null;
+      }
+
+      // 只返回驗證用的最小資料
+      const amount = parseFloat(currentPeriodData.Amt || 0);
+      const isPaid = currentPeriodData.StatusDesc === "授權完成" ||
+                     currentPeriodData.AuthCode === "000000" ||
+                     resultData.Status === "SUCCESS";
+
+      return {
+        amount: amount,
+        tradeStatusText: currentPeriodData.StatusDesc || resultData.Status || "未知",
+        tradeNo: currentPeriodData.TradeNo || "",
+        isPaid: isPaid,
+      };
+    } catch (error: any) {
+      logger.error("解析續期查詢結果失敗", { errorMessage: error.message });
+      return null;
+    }
   }
 
   /**

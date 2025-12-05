@@ -212,7 +212,7 @@ export function createPaymentRoutes(paymentLimiter: any, oneTimeTokens: Map<stri
       // 5. 生成新訂單
       const tradeNo = generateTradeNo();
       const orderData = buildOrderData(
-        `${tradeNo}_0`,
+        `${tradeNo}`,
         product,
         userEmail,
         PAYUNI_CONFIG.MERCHANT_ID!,

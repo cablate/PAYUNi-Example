@@ -205,7 +205,7 @@ export class WebhookProcessor {
    * @private
    */
   private _validateAmount(parsedData: ParsedData, queryData: QueryData, tradeNo: string): ProcessResult {
-    const webhookAmount = parseInt(String(parsedData.TradeAmt || parsedData.PeriodAmt || 0));
+    const webhookAmount = parseInt(String(parsedData.TradeAmt || parsedData.PeriodAmt || parsedData.Amount || 0));
     const queryAmount = parseInt(String(queryData.amount));
 
     if (queryAmount !== webhookAmount) {
@@ -297,7 +297,7 @@ export class WebhookProcessor {
     queryData: QueryData
   ): any {
     return {
-      MerTradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
+      MerTradeNo: isPeriod ? `${tradeNo.split("_")[0]}` : tradeNo,
       TradeSeq: queryData.tradeNo,
       Status: queryData.tradeStatusText,
       PeriodTradeNo: parsedData.PeriodTradeNo || "",
@@ -367,7 +367,7 @@ export class WebhookProcessor {
     // 記錄失敗供後續定期修復任務處理
     try {
       await this.db.recordFailedEntitlement({
-        tradeNo: isPeriod ? `${tradeNo.split("_")[0]}_0` : tradeNo,
+        tradeNo: isPeriod ? `${tradeNo.split("_")[0]}` : tradeNo,
         amount: queryData.amount,
         reason: lastError?.message || '未知錯誤',
         attempt: MAX_RETRIES,
@@ -401,7 +401,7 @@ export class WebhookProcessor {
   ): Promise<void> {
     // 訂閱制需要轉換訂單號：_1、_2... -> _0 (原始訂單)
     const searchTradeNo = isPeriod
-      ? `${tradeNo.split("_")[0]}_0`
+      ? `${tradeNo.split("_")[0]}`
       : tradeNo;
 
     logger.info("準備授予權益", {

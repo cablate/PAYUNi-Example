@@ -40,6 +40,11 @@ interface PayuniSDK {
     data?: any;
     error?: string;
   }>;
+  queryPeriodStatus(periodTradeNo: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>;
   cancelPeriodPayment(periodTradeNo: string): Promise<{
     success: boolean;
     error?: string;
@@ -388,6 +393,70 @@ export class PayuniGateway {
     } catch (error: any) {
       logger.error("查詢訂單異常", {
         tradeNo,
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * 查詢續期訂單狀態
+   *
+   * @param {string} periodTradeNo - 續期交易編號
+   * @returns {Promise<Object>} 查詢結果
+   * @returns {boolean} 返回.success - 是否成功
+   * @returns {Object} [返回.data] - 續期訂單資料（成功時）
+   * @returns {string} [返回.error] - 錯誤訊息（失敗時）
+   *
+   * @example
+   * const result = await gateway.queryPeriodStatus('20251205095722shT2cG');
+   * if (result.success && result.data.isPaid) {
+   *   // 續期扣款成功
+   *   console.log(`第 ${result.data.thisPeriod}/${result.data.totalTimes} 期`);
+   *   console.log(`下次扣款日期: ${result.data.nextAuthDate}`);
+   * }
+   */
+  async queryPeriodStatus(periodTradeNo: string): Promise<QueryResult> {
+    try {
+      if (!periodTradeNo) {
+        throw new Error("缺少續期交易編號");
+      }
+
+      logger.info("正在查詢續期訂單狀態", { periodTradeNo });
+
+      // 調用 SDK 查詢
+      const queryResult = await this.sdk.queryPeriodStatus(periodTradeNo);
+
+      if (!queryResult.success) {
+        logger.warn("查詢續期訂單失敗", {
+          periodTradeNo,
+          error: queryResult.error,
+        });
+        return {
+          success: false,
+          error: queryResult.error || "查詢失敗",
+        };
+      }
+
+      logger.info("續期訂單查詢成功", {
+        periodTradeNo,
+        status: queryResult.data.status,
+        isPaid: queryResult.data.isPaid,
+        authAmt: queryResult.data.authAmt,
+        thisPeriod: queryResult.data.thisPeriod,
+        totalTimes: queryResult.data.totalTimes,
+      });
+
+      return {
+        success: true,
+        data: queryResult.data,
+      };
+    } catch (error: any) {
+      logger.error("查詢續期訂單異常", {
+        periodTradeNo,
         error: error.message,
       });
       return {

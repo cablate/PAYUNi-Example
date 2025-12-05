@@ -28,6 +28,11 @@ interface PaymentGateway {
     data?: any;
     error?: string;
   }>;
+  queryPeriodStatus?(periodTradeNo: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>;
 }
 
 interface WebhookProcessor {
@@ -125,10 +130,13 @@ export class WebhookHandler {
         return validationResult;
       }
 
-      const { parsedData, tradeNo } = validationResult.data!;
+      const { parsedData, tradeNo, paymentType, periodTradeNo } = validationResult.data!;
 
       // 步驟 2: 查詢金流商 API 確認狀態（不信任 Webhook，以 API 為準）
-      const queryResult = await this._queryOrderStatus(tradeNo);
+      const queryResult = await this._queryOrderStatus(
+        paymentType === "period" ? periodTradeNo : tradeNo,
+        paymentType
+      );
       if (!queryResult.success) {
         return queryResult;
       }
@@ -137,14 +145,22 @@ export class WebhookHandler {
 
       logger.info("✓ Webhook 驗證和查詢完成，準備處理業務邏輯", {
         tradeNo,
+        paymentType,
         status: queryData.tradeStatusText,
         amount: queryData.amount,
         isPaid: queryData.isPaid,
       });
 
       // 步驟 3: 委派給 WebhookProcessor 處理業務邏輯
+      // 標準化 parsedData，確保欄位名稱符合 WebhookProcessor 的期望
+      const normalizedParsedData = {
+        ...parsedData,
+        // Payuni 續期付款的金額欄位是 AuthAmt，需要轉換為 PeriodAmt
+        PeriodAmt: parsedData.PeriodAmt || parsedData.AuthAmt,
+      };
+
       const processResult = await this.processor.processPayment(
-        parsedData,
+        normalizedParsedData,
         queryData
       );
 
@@ -158,6 +174,7 @@ export class WebhookHandler {
 
       logger.info("✓ Webhook 處理完成", {
         tradeNo,
+        paymentType,
         status: queryData.tradeStatusText,
         amount: queryData.amount,
       });
@@ -167,6 +184,7 @@ export class WebhookHandler {
         message: "Webhook 處理成功",
         data: {
           tradeNo,
+          paymentType,
           status: queryData.tradeStatusText,
           amount: queryData.amount,
         },
@@ -223,6 +241,16 @@ export class WebhookHandler {
     const tradeSeq = parsedData.TradeNo;
     const payStatus = parsedData.Status || "已完成";
 
+    // 判斷是否為續期付款
+    const isPeriodPayment = !!(
+      parsedData.PeriodTradeNo ||
+      parsedData.PeriodOrderNo ||
+      (parsedData.Message && parsedData.Message.includes("續期"))
+    );
+
+    const paymentType = isPeriodPayment ? "period" : "onetime";
+    const periodTradeNo = parsedData.PeriodTradeNo;
+
     // 檢查訂單編號
     if (!tradeNo) {
       logger.warn("❌ Webhook 資料缺少商戶訂單編號");
@@ -232,10 +260,21 @@ export class WebhookHandler {
       };
     }
 
+    // 如果是續期付款，檢查是否有 PeriodTradeNo
+    if (isPeriodPayment && !periodTradeNo) {
+      logger.warn("❌ 續期付款缺少 PeriodTradeNo");
+      return {
+        success: false,
+        message: "續期付款缺少 PeriodTradeNo",
+      };
+    }
+
     logger.info("✓ Webhook 驗證和解析通過", {
       tradeNo,
       tradeSeq,
       payStatus,
+      paymentType,
+      periodTradeNo: periodTradeNo || "N/A",
     });
 
     return {
@@ -246,6 +285,8 @@ export class WebhookHandler {
         tradeNo,
         tradeSeq,
         payStatus,
+        paymentType,
+        periodTradeNo,
       },
     };
   }
@@ -253,19 +294,42 @@ export class WebhookHandler {
   /**
    * 查詢訂單狀態（主動確認支付）
    * @private
-   * @param {string} tradeNo - 商戶訂單編號
+   * @param {string} tradeNo - 商戶訂單編號或續期交易編號
+   * @param {string} paymentType - 付款類型：'onetime' 或 'period'
    * @returns {Promise<Object>} 查詢結果
    */
-  private async _queryOrderStatus(tradeNo: string): Promise<ProcessResult> {
+  private async _queryOrderStatus(
+    tradeNo: string,
+    paymentType: string = "onetime"
+  ): Promise<ProcessResult> {
     try {
-      logger.info("正在查詢金流商 API 確認訂單狀態", { tradeNo });
+      logger.info("正在查詢金流商 API 確認訂單狀態", {
+        tradeNo,
+        paymentType
+      });
 
-      // 使用 Gateway 查詢
-      const queryResult = await this.gateway.queryOrderStatus(tradeNo);
+      let queryResult: any;
+
+      // 根據付款類型選擇查詢方法
+      if (paymentType === "period") {
+        // 續期付款：使用 queryPeriodStatus
+        if (!this.gateway.queryPeriodStatus) {
+          logger.error("❌ Gateway 不支援續期查詢方法");
+          return {
+            success: false,
+            message: "Gateway 不支援續期查詢",
+          };
+        }
+        queryResult = await this.gateway.queryPeriodStatus(tradeNo);
+      } else {
+        // 一次性付款：使用 queryOrderStatus
+        queryResult = await this.gateway.queryOrderStatus(tradeNo);
+      }
 
       if (!queryResult.success) {
         logger.error("❌ 查詢訂單失敗，放棄處理", {
           tradeNo,
+          paymentType,
           error: queryResult.error,
         });
         return {
@@ -274,10 +338,10 @@ export class WebhookHandler {
         };
       }
 
-      logger.info("✓ API 查詢成功（以此為準）", {
+      logger.info("✓ API 查詢成功（驗證通過）", {
         tradeNo,
+        paymentType,
         amount: queryResult.data.amount,
-        status: queryResult.data.tradeStatusText,
         isPaid: queryResult.data.isPaid,
       });
 
@@ -289,6 +353,7 @@ export class WebhookHandler {
     } catch (queryError: any) {
       logger.error("⚠️ 查詢訂單異常，放棄處理", {
         tradeNo,
+        paymentType,
         error: queryError.message,
       });
       return {
