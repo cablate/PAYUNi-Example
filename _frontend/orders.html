@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Orders - Payuni Secure</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>我的訂單 - Payuni 安全支付</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/public/style.css" />
   </head>
   <body>
@@ -15,63 +15,63 @@
           <div class="brand-header">
             <div class="brand-logo">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-              <span>Payuni Secure</span>
+              <span>Payuni 安全支付</span>
             </div>
-            <span class="brand-tag">Developer Edition</span>
+            <span class="brand-tag">開發者版本</span>
           </div>
 
-          <h1 class="summary-title">Transaction History</h1>
+          <h1 class="summary-title">交易紀錄</h1>
           <p class="summary-desc">
-            View all your purchase records. Every transaction is encrypted and securely stored.
+            查看您所有的購買紀錄。每筆交易都經過加密並安全儲存。
           </p>
 
           <ul class="value-props">
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span><strong>Secure Storage</strong> - All data encrypted</span>
+              <span><strong>安全儲存</strong> - 所有資料皆經加密</span>
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span><strong>Full Records</strong> - Never lose transaction data</span>
+              <span><strong>完整記錄</strong> - 交易資料永不遺失</span>
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span><strong>Export Available</strong> - Download for accounting</span>
+              <span><strong>支援匯出</strong> - 可下載作為帳務記錄</span>
             </li>
           </ul>
 
           <div class="footer-links-left">
-            <a href="/">← Back to Home</a>
-            <a href="/subscriptions.html">My Subscriptions</a>
+            <a href="/">← 返回首頁</a>
+            <a href="/subscriptions.html">我的訂閱</a>
           </div>
         </div>
       </div>
 
-      <!-- Right Column: Checkout Form -->
+      <!-- Right Column: Orders List -->
       <div class="checkout-form-container">
-        <div class="form-wrapper">
+        <div class="form-wrapper form-wrapper-wide">
 
           <!-- Login Prompt (Hidden by default) -->
           <div id="loginPrompt" class="checkout-step" style="display: none;">
             <div class="step-header">
               <span class="step-number">🔒</span>
-              <h3>Login Required</h3>
+              <h3>需要登入</h3>
             </div>
-            <p class="step-desc">Please sign in to view your order history.</p>
+            <p class="step-desc">請登入以查看您的訂單紀錄。</p>
             <button id="loginBtn" class="google-login-btn">
               <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" />
-              Continue with Google
+              使用 Google 帳號登入
             </button>
           </div>
 
           <!-- Orders Container (Hidden by default) -->
           <div id="ordersContainer" style="display: none;">
-            
+
             <!-- Loading State -->
             <div id="loadingState" class="checkout-step" style="display: none;">
               <div class="step-header">
                 <span class="step-number">⏳</span>
-                <h3>Loading Orders...</h3>
+                <h3>載入訂單中...</h3>
               </div>
             </div>
 
@@ -82,11 +82,11 @@
             <div id="emptyState" class="checkout-step" style="display: none;">
               <div class="step-header">
                 <span class="step-number">📦</span>
-                <h3>No Orders Found</h3>
+                <h3>尚無訂單</h3>
               </div>
-              <p class="step-desc">You haven't made any purchases yet.</p>
+              <p class="step-desc">您還沒有任何購買紀錄。</p>
               <a href="/" class="pay-button-large" style="text-decoration: none; display: inline-block; margin-top: 16px;">
-                Browse Products
+                瀏覽商品
               </a>
             </div>
 

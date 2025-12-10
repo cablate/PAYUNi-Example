@@ -12,20 +12,20 @@ let csrfToken = "";
  */
 async function checkLoginStatus() {
   try {
-    console.log("Checking login status...");
+    console.log("檢查登入狀態...");
     const response = await fetch("/api/me");
     console.log("Response status:", response.status);
 
     if (response.ok) {
       const data = await response.json();
       console.log("Auth data:", data);
-      
+
       if (data.loggedIn) {
         currentUser = data.user;
         return true;
       }
     } else {
-      console.error("Auth check failed with status:", response.status);
+      console.error("登入檢查失敗，狀態碼:", response.status);
     }
     return false;
   } catch (error) {
@@ -80,67 +80,66 @@ async function loadSubscriptions() {
  */
 function renderSubscriptions() {
   const subscriptionsList = document.getElementById("subscriptionsList");
-  
-  // Separate Active and Inactive
+
+  // 分離有效和無效訂閱
   const activeSubs = subscriptions.filter(sub => sub.status === "active" && !sub.cancelledAt);
   const inactiveSubs = subscriptions.filter(sub => sub.status !== "active" || sub.cancelledAt);
-  
+
   let html = `<div class="dashboard-grid">`;
 
-  // Render Active Subscriptions (Hero Cards)
+  // 渲染有效訂閱 (Hero Cards)
   if (activeSubs.length > 0) {
     html += activeSubs.map(sub => {
-      // Calculate Progress
+      // 計算進度
       const start = new Date(sub.startDate).getTime();
       const next = new Date(sub.nextBillingDate).getTime();
       const now = Date.now();
       const totalDuration = next - start;
       const elapsed = now - start;
-      // Simple progress calculation for demo (cycle based)
-      // In real app, calculate based on current billing cycle start/end
-      const progressPercent = Math.min(100, Math.max(0, (elapsed % (30 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000) * 100)); // Approx monthly cycle
-      
+      // 簡單進度計算 (以週期計)
+      const progressPercent = Math.min(100, Math.max(0, (elapsed % (30 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000) * 100));
+
       return `
         <div class="rich-card">
           <div class="card-header">
             <div class="card-title-group">
               <h3>${getProductName(sub.productId)}</h3>
-              <span class="card-subtitle">Active Plan</span>
+              <span class="card-subtitle">有效方案</span>
             </div>
-            <span class="status-badge-glow status-active">ACTIVE</span>
+            <span class="status-badge-glow status-active">有效</span>
           </div>
-          
+
           <div class="progress-container">
             <div class="progress-label">
-              <span>Billing Cycle</span>
+              <span>計費週期</span>
               <span>${Math.round(progressPercent)}%</span>
             </div>
             <div class="progress-bar-bg">
               <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
             </div>
           </div>
-          
+
           <div class="card-body-grid">
             <div class="info-group">
-              <span class="info-label">Next Billing Date</span>
+              <span class="info-label">下次扣款日</span>
               <span class="info-value highlight">${formatDate(sub.nextBillingDate)}</span>
             </div>
             <div class="info-group">
-              <span class="info-label">Start Date</span>
+              <span class="info-label">開始日期</span>
               <span class="info-value">${formatDate(sub.startDate)}</span>
             </div>
           </div>
-          
+
           <div class="card-actions">
-            <button class="btn-outline">Manage Plan</button>
+            <button class="btn-outline">管理方案</button>
             ${sub.periodTradeNo ? `
-            <button 
-              class="btn-danger-text btn-cancel-subscription" 
+            <button
+              class="btn-danger-text btn-cancel-subscription"
               data-period-trade-no="${sub.periodTradeNo}"
               data-product-name="${getProductName(sub.productId)}"
               data-expiry-date="${sub.expiryDate}"
             >
-              Cancel Subscription
+              取消訂閱
             </button>
             ` : ''}
           </div>
@@ -148,11 +147,11 @@ function renderSubscriptions() {
       `;
     }).join("");
   }
-  
-  // Render Inactive/Cancelled Subscriptions (Compact)
+
+  // 渲染已取消/過期的訂閱 (緊湊版)
   if (inactiveSubs.length > 0) {
     html += `
-      <h3 style="margin: 24px 0 16px; color: var(--text-secondary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Past Subscriptions</h3>
+      <h3 style="margin: 24px 0 16px; color: var(--text-secondary); font-size: 14px; letter-spacing: 0.05em;">過去的訂閱</h3>
     `;
     html += inactiveSubs.map(sub => {
       return `
@@ -160,9 +159,9 @@ function renderSubscriptions() {
           <div class="card-header" style="margin-bottom: 0; padding-bottom: 0; border: none;">
             <div class="card-title-group">
               <h3 style="font-size: 16px;">${getProductName(sub.productId)}</h3>
-              <span class="card-subtitle">Ended: ${formatDate(sub.expiryDate || sub.cancelledAt)}</span>
+              <span class="card-subtitle">結束於: ${formatDate(sub.expiryDate || sub.cancelledAt)}</span>
             </div>
-            <span class="status-badge-glow status-cancelled">CANCELLED</span>
+            <span class="status-badge-glow status-cancelled">已取消</span>
           </div>
         </div>
       `;
@@ -172,7 +171,7 @@ function renderSubscriptions() {
   html += `</div>`; // Close grid
   subscriptionsList.innerHTML = html;
 
-  // Bind cancel buttons
+  // 綁定取消按鈕
   document.querySelectorAll(".btn-cancel-subscription").forEach((btn) => {
     btn.addEventListener("click", handleCancelClick);
   });
@@ -192,7 +191,7 @@ function handleCancelClick(e) {
   const modal = document.getElementById("cancelModal");
   const message = document.getElementById("cancelMessage");
 
-  message.textContent = `Are you sure you want to cancel "${cancelTarget.productName}"? Your benefits will remain active until ${formatDate(cancelTarget.expiryDate)}.`;
+  message.textContent = `確定要取消「${cancelTarget.productName}」嗎？您的權益將維持到 ${formatDate(cancelTarget.expiryDate)} 為止。`;
 
   modal.classList.remove("hidden");
 }
@@ -205,7 +204,7 @@ async function confirmCancel() {
 
   const confirmBtn = document.getElementById("confirmCancelBtn");
   confirmBtn.disabled = true;
-  confirmBtn.textContent = "Cancelling...";
+  confirmBtn.textContent = "取消中...";
 
   try {
     const response = await fetch(
@@ -221,18 +220,18 @@ async function confirmCancel() {
     const data = await response.json();
 
     if (response.ok && data.success) {
-      alert(`✅ Subscription cancelled successfully\n\nBenefits remain until: ${formatDate(cancelTarget.expiryDate)}`);
+      alert(`✅ 訂閱已成功取消\n\n您的權益將維持到：${formatDate(cancelTarget.expiryDate)}`);
       closeModal();
       loadSubscriptions();
     } else {
-      throw new Error(data.error || "Failed to cancel");
+      throw new Error(data.error || "取消失敗");
     }
   } catch (error) {
     console.error("取消失敗:", error);
-    alert(`❌ Failed to cancel: ${error.message}`);
+    alert(`❌ 取消失敗：${error.message}`);
   } finally {
     confirmBtn.disabled = false;
-    confirmBtn.textContent = "Confirm Cancel";
+    confirmBtn.textContent = "確認取消";
   }
 }
 
@@ -250,9 +249,9 @@ function closeModal() {
 function formatDate(dateString) {
   if (!dateString) return "-";
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("zh-TW", {
     year: "numeric",
-    month: "short",
+    month: "long",
     day: "numeric",
   });
 }
@@ -262,10 +261,10 @@ function formatDate(dateString) {
  */
 function getProductName(productId) {
   const productNames = {
-    plan_basic: "Basic Plan",
-    plan_premium: "Premium Plan",
-    plan_enterprise: "Enterprise Plan",
-    product_onetime: "Lifetime Plan",
+    plan_basic: "基礎方案",
+    plan_premium: "進階方案",
+    plan_enterprise: "企業方案",
+    product_onetime: "終身方案",
   };
   return productNames[productId] || productId;
 }

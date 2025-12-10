@@ -46,82 +46,91 @@ async function loadOrders() {
 
 function renderOrders(orders) {
   const container = document.getElementById("ordersList");
-  
+
   // Calculate Stats
   const totalOrders = orders.length;
   const totalSpent = orders.reduce((sum, order) => sum + parseInt(order.tradeAmt || 0), 0);
-  
+
   // Render Dashboard Header
   let html = `
     <div class="dashboard-stats">
       <div class="stat-card">
-        <span class="stat-label">Total Orders</span>
+        <span class="stat-label">訂單總數</span>
         <span class="stat-value">${totalOrders}</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Total Spent</span>
-        <span class="stat-value">$${totalSpent.toLocaleString()}</span>
+        <span class="stat-label">消費總額</span>
+        <span class="stat-value">NT$ ${totalSpent.toLocaleString()}</span>
       </div>
     </div>
     <div class="dashboard-grid">
   `;
-  
+
   // Render Rich Cards
   html += orders.map(order => {
     const isSuccess = order.status === "SUCCESS" || order.status === "已付款" || order.status === "已完成";
     const statusClass = isSuccess ? 'status-paid' : 'status-cancelled';
-    const statusText = isSuccess ? 'PAID' : 'FAILED';
-    
-    const date = new Date(order.createdAt).toLocaleDateString("en-US", {
+    const statusText = isSuccess ? '已付款' : '失敗';
+
+    const date = new Date(order.createdAt).toLocaleDateString("zh-TW", {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     });
-    
+
+    // 支付方式中文化
+    const paymentMethodMap = {
+      'Credit Card': '信用卡',
+      '信用卡': '信用卡',
+      'ATM': 'ATM 轉帳',
+      'CVS': '超商代碼',
+    };
+    const paymentMethod = paymentMethodMap[order.paymentMethod] || order.paymentMethod || '信用卡';
+
     return `
       <div class="rich-card">
         <div class="card-header">
           <div class="card-title-group">
             <h3>${order.productName}</h3>
-            <span class="card-subtitle">ID: ${order.tradeNo}</span>
+            <span class="card-subtitle">訂單編號: ${order.tradeNo}</span>
           </div>
           <span class="status-badge-glow ${statusClass}">${statusText}</span>
         </div>
-        
+
         <div class="card-body-grid">
           <div class="info-group">
-            <span class="info-label">Amount</span>
-            <span class="info-value highlight">$${order.tradeAmt}</span>
+            <span class="info-label">金額</span>
+            <span class="info-value highlight">NT$ ${order.tradeAmt}</span>
           </div>
           <div class="info-group">
-            <span class="info-label">Date</span>
+            <span class="info-label">日期</span>
             <span class="info-value">${date}</span>
           </div>
           <div class="info-group">
-            <span class="info-label">Payment Method</span>
+            <span class="info-label">付款方式</span>
             <span class="info-value">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-              ${order.paymentMethod || 'Credit Card'}
+              ${paymentMethod}
             </span>
           </div>
           ${order.tradeSeq ? `
           <div class="info-group">
-            <span class="info-label">Receipt No.</span>
+            <span class="info-label">交易序號</span>
             <span class="info-value">${order.tradeSeq}</span>
           </div>
           ` : ''}
         </div>
-        
+
         <div class="card-actions">
-          <button class="btn-outline" onclick="alert('Invoice download feature coming soon!')">
+          <button class="btn-outline" onclick="alert('發票下載功能即將推出！')">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Download Invoice
+            下載發票
           </button>
         </div>
       </div>
     `;
   }).join("");
-  
+
   html += `</div>`; // Close grid
 
   container.innerHTML = html;

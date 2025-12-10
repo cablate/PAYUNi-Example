@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>我的訂閱 - Payuni Secure</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>我的訂閱 - Payuni 安全支付</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/public/style.css" />
   </head>
   <body>
@@ -15,19 +15,19 @@
           <div class="brand-header">
             <div class="brand-logo">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-              <span>Payuni Secure</span>
+              <span>Payuni 安全支付</span>
             </div>
-            <span class="brand-tag">Subscriptions</span>
+            <span class="brand-tag">訂閱管理</span>
           </div>
 
-          <h1 class="summary-title">Manage Your<br>Subscriptions</h1>
+          <h1 class="summary-title">管理您的<br>訂閱方案</h1>
           <p class="summary-desc">
-            View, manage, and cancel your active subscriptions. Your benefits will remain active until the end of your billing period.
+            查看、管理和取消您的有效訂閱。您的權益將持續到當前計費週期結束為止。
           </p>
 
           <div class="footer-links-left footer-links-container">
-            <a href="/">← Back to Home</a>
-            <a href="/orders.html">My Orders</a>
+            <a href="/">← 返回首頁</a>
+            <a href="/orders.html">我的訂單</a>
           </div>
         </div>
       </div>
@@ -35,26 +35,26 @@
       <!-- Right Column: Subscriptions List -->
       <div class="checkout-form-container">
         <div class="form-wrapper form-wrapper-wide">
-          
+
           <!-- Login Required -->
           <div id="loginPrompt" class="checkout-step login-prompt">
             <div class="step-header">
               <span class="step-number">🔒</span>
-              <h3>Login Required</h3>
+              <h3>需要登入</h3>
             </div>
-            <p class="step-desc">Please sign in to view your subscriptions.</p>
+            <p class="step-desc">請登入以查看您的訂閱內容。</p>
             <button id="loginBtn" class="google-login-btn">
               <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" />
-              Continue with Google
+              使用 Google 帳號登入
             </button>
           </div>
 
           <!-- Subscriptions Container -->
           <div id="subscriptionsContainer" class="subscriptions-container">
-            
+
             <!-- Loading State -->
             <div id="loadingState" class="checkout-step loading-state">
-              <p class="step-desc loading-text">Loading subscriptions...</p>
+              <p class="step-desc loading-text">載入訂閱中...</p>
             </div>
 
             <!-- Subscriptions List -->
@@ -64,11 +64,11 @@
             <div id="emptyState" class="checkout-step empty-state">
               <div class="step-header empty-state-header">
                 <span class="step-number">📭</span>
-                <h3>No Active Subscriptions</h3>
+                <h3>目前沒有訂閱</h3>
               </div>
-              <p class="step-desc">You don't have any subscriptions yet.</p>
+              <p class="step-desc">您還沒有任何訂閱方案。</p>
               <a href="/" class="pay-button-large browse-products-btn">
-                Browse Products
+                瀏覽商品
               </a>
             </div>
 
@@ -81,14 +81,14 @@
     <div id="cancelModal" class="order-history-modal hidden">
       <div class="modal-content">
         <span class="close-btn" id="closeCancelModal">×</span>
-        <h2>⚠️ Cancel Subscription</h2>
+        <h2>⚠️ 取消訂閱</h2>
         <p id="cancelMessage" class="cancel-message"></p>
         <div class="modal-actions">
           <button id="confirmCancelBtn" class="pay-button-large btn-confirm-cancel">
-            Confirm Cancel
+            確認取消
           </button>
           <button id="cancelCancelBtn" class="pay-button-large btn-keep-subscription">
-            Keep Subscription
+            保留訂閱
           </button>
         </div>
       </div>
