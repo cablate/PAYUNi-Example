@@ -2,7 +2,7 @@ import cors from "cors";
 import csrf from "csurf";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { CORS_ALLOWED_ORIGINS, CSRF_EXCLUDED_PATHS, RATE_LIMIT_CONFIG } from "@/config/constants";
+import { CORS_ALLOWED_ORIGINS, CSRF_EXCLUDED_PATHS, RATE_LIMIT_CONFIG, SERVER_CONFIG } from "@/config/constants";
 import logger from "@/utils/logger";
 import type { Express, Request, Response, NextFunction } from "express";
 
@@ -39,11 +39,15 @@ export function configureHelmet(app: Express): void {
  * 配置 CORS
  */
 export function configureCors(app: Express): void {
+  const isDevelopment = SERVER_CONFIG.NODE_ENV !== "production";
+
   const corsOptions = {
     origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+      // 允許無 origin 的請求（Postman、curl、伺服器對伺服器）
+      // 開發環境也允許 null origin（本機 file:// 測試）
       if (
         !origin ||
-        origin === "null" ||
+        (isDevelopment && origin === "null") ||
         CORS_ALLOWED_ORIGINS.some((allowed) => {
           return origin === allowed || origin === allowed.replace(/\/$/, "");
         })
