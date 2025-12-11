@@ -1,191 +1,269 @@
-# 金流整合實戰包 - 價值啟動指南 (v2)
+# 金流串接範例程式碼
 
-恭喜您！歡迎使用「金流整合實戰包」。這不僅僅是一份程式碼，而是一套為您精心打造、可以直接投入真實商業環境的解決方案。
-
-我們將引導您完成所有設定，並深入探索這套系統的價值所在，讓您不僅能成功啟動服務，更能充滿信心地將其客製化、部署上線。
-
----
-
-## 📖 章節索引
-- [Part 0: 歡迎與起點](#part-0-歡迎與起點)
-- [Part 1: 環境準備與安裝](#part-1-環境準備與安裝)
-- [Part 2: 核心金鑰設定](#part-2-核心金鑰設定)
-- [Part 3: 啟動與本地測試](#part-3-啟動與本地測試)
-- [Part 4: 深入導覽與客製化](#part-4-深入導覽與客製化)
-- [Part 5: 從測試到正式上線](#part-5-從測試到正式上線)
-- [附錄：常見問題與支援](#附錄-常見問題與支援)
+> **定位**：課程範例程式碼，供學員學習金流串接流程
+> **版本**：v1.0
+> **最後更新**：2025-12-10
 
 ---
 
-## Part 0: 歡迎與起點
+## 這是什麼？
 
-在開始動手設定前，讓我們先花幾分鐘了解您所獲得的這套系統的設計理念與價值。
+這是一套**金流串接課程的教學範例程式碼**，展示如何實作：
 
-### 0.1 這是一套解決方案，不僅是程式碼
-我們整合了金流、使用者登入、人機驗證與自動化訂單紀錄，並內建了多層次的安全防護。您獲得的是一套解決了真實世界問題的即戰力方案。
+- Google OAuth 登入
+- 建立訂單並跳轉至金流頁面付款
+- 接收 Webhook 回調並更新資料庫
+- 查詢訂單與訂閱狀態
 
-### 0.2 系統藍圖
-您的金流服務將由以下幾個部分協同工作：
-1.  **使用者** 在您的網站上透過 **Google** 登入。
-2.  通過 **Cloudflare Turnstile** 的無感人機驗證。
-3.  在您的 **Node.js (Express)** 伺服器上建立訂單。
-4.  跳轉至 **Payuni** 支付頁面完成付款。
-5.  付款成功後，**Payuni Webhook** 通知您的伺服器。
-6.  伺服器驗證通知，並透過 **Google Apps Script (GAS)** 將訂單安全地寫入您的 **Google Sheet**。
-
-### 0.3 設計理念
-我們選擇了穩定、主流且具成本效益的技術堆疊，以確保您的服務安全、可靠且易於維護。想了解更多技術選型的細節，請參閱 `@@docs/00_DESIGN_PHILOSOPHY.md`。
+**本專案採用 Google Sheets 作為資料庫**，目的是降低學習門檻，讓學員無需安裝 MySQL/PostgreSQL 即可快速體驗完整的金流串接流程。
 
 ---
 
-## Part 1: 環境準備與安裝
+## 適合誰？
 
-### 1.1 安裝 Node.js
-本專案需要 `Node.js` (版本 14 或以上)。
-- **檢查版本**: 在終端機輸入 `node -v`。
-- **安裝**: 前往 [Node.js 官方網站](https://nodejs.org/) 下載並安裝 LTS 版本。
-
-### 1.2 下載並安裝專案
-1.  解壓縮您收到的檔案，或使用 `git clone`。
-2.  在終端機中，進入專案根目錄。
-3.  執行以下指令安裝所有必要的套件：
-    ```bash
-    npm install
-    ```
+| 對象 | 說明 |
+|------|------|
+| **工程師** | 想了解金流串接流程的開發者 |
+| **Vibe Coder** | 用 AI 輔助開發、想快速上手金流的非傳統工程師 |
+| **創業者** | 想在自己的產品中加入付款功能，先用範例練手 |
 
 ---
 
-## Part 2: 核心金鑰設定
+## 功能清單
 
-現在，我們來取得串接所有外部服務所需的金鑰。
+### 已實作（可直接使用）
 
-### 2.1 Payuni 商店金鑰
-- **用途**: 處理核心的金流交易。
-- **步驟**:
-    1. 前往 [Payuni 官網](https://www.payuni.com.tw/) 註冊開發者帳號。
-    2. 在後台找到 **測試環境** 的 `商店代號 (Merchant ID)`、`HashKey`、`HashIV`。
+| 功能 | 說明 | 狀態 |
+|------|------|------|
+| Google OAuth 登入 | 使用者以 Google 帳號登入 | ✅ 完成 |
+| 一次性支付 | 建立訂單 → 跳轉 PAYUNi → 完成付款 | ✅ 完成 |
+| 訂閱制支付 | 建立訂閱訂單（首期扣款） | ✅ 完成 |
+| Webhook 接收 | 接收金流回調、驗證簽章、更新資料 | ✅ 完成 |
+| 訂單查詢 | 使用者查看自己的訂單紀錄 | ✅ 完成 |
+| 訂閱查詢 | 使用者查看訂閱狀態 | ✅ 完成 |
+| 權益授予 | 付款成功後自動授予使用者權益 | ✅ 完成 |
+| 安全防護 | CSRF、Rate Limit、Helmet、Turnstile | ✅ 完成 |
 
-### 2.2 Google OAuth 2.0 憑證
-- **用途**: 提供安全、可信賴的使用者 Google 登入功能。
-- **步驟**:
-    1. 前往 [Google Cloud Console](https://console.cloud.google.com/) 建立一個 OAuth 2.0 用戶端 ID。
-    2. 應用程式類型選擇「網頁應用程式」。
-    3. 在「已授權的 JavaScript 來源」中新增 `http://localhost`。
-    4. 在「已授權的重新導向 URI」中新增 `http://localhost/auth/google/callback`。
-    5. 記下您的 `用戶端 ID` 和 `用戶端密鑰`。
+### 未實作（需自行擴充）
 
-### 2.3 Cloudflare Turnstile 金鑰
-- **用途**: 取代傳統惱人的 Captcha，在不犧牲安全性的前提下提升使用者體驗。
-- **步驟**:
-    1. 登入 [Cloudflare Dashboard](https://dash.cloudflare.com/)，在 `Turnstile` 選單中新增站點。
-    2. 記下 `Site Key` (網站金鑰) 和 `Secret Key` (密鑰)。
-
-### 2.4 Google Apps Script (GAS) 部署網址
-- **用途**: 作為一個無伺服器、免費且安全的資料庫，用於儲存訂單紀錄。
-- **步驟**:
-    1. 依照 `@gas/README.md` 的指示，將 `code.gs` 部署為網路應用程式。
-    2. 複製並記下最終生成的 **部署網址**。
+| 功能 | 說明 | 狀態 |
+|------|------|------|
+| 退款流程 | 透過 API 發起退款 | ❌ 未實作 |
+| 補償機制 | Webhook 失敗時的手動補單腳本 | ❌ 未實作 |
+| 錯誤通知 | Webhook 處理失敗時發送通知（Email/Slack） | ❌ 未實作 |
+| 發票開立 | 串接電子發票 API | ❌ 未實作 |
+| 後台管理 | 管理員查看所有訂單的 Dashboard | ❌ 未實作 |
 
 ---
 
-## Part 3: 啟動與本地測試
+## 技術架構
 
-### 3.1 設定環境變數 `.env`
-這是最關鍵的一步。所有敏感的金鑰都將存放在這裡。
-1.  在專案根目錄中，複製 `env.example` 並重新命名為 `.env`。
-2.  打開 `.env` 檔案，填入您在 Part 2 取得的所有金鑰與資訊：
+```
+使用者瀏覽器
+    ↓
+Google OAuth 登入
+    ↓
+Express 伺服器 ←→ Google Sheets（資料儲存）
+    ↓
+PAYUNi 金流（付款頁面）
+    ↓
+Webhook 回調 → 更新 Google Sheets → 授予權益
+    ↓
+支付結果頁面
+```
 
-    ```env
-    # Payuni 金鑰
-    PAYUNI_MERCHANT_ID=...
-    PAYUNI_HASH_KEY=...
-    PAYUNI_HASH_IV=...
+### 技術棧
 
-    # Google OAuth
-    GOOGLE_CLIENT_ID=...
-    GOOGLE_CLIENT_SECRET=...
-
-    # Cloudflare Turnstile
-    TURNSTILE_SECRET_KEY=...
-
-    # Google Apps Script
-    GAS_WEBHOOK_URL=...
-
-    # 您的服務網域與回呼網址
-    DOMAIN=http://localhost
-    PAYUNI_RETURN_URL=http://localhost/result.html
-    GOOGLE_REDIRECT_URI=http://localhost/auth/google/callback
-    NOTIFY_URL=https://your-public-domain.com/payuni-webhook # 上線時需要一個公開網址
-
-    # 伺服器與 Session 設定
-    PORT=80
-    SESSION_SECRET=... # 請輸入一個至少 32 字元的隨機字串
-    ```
-    **提醒**: `SESSION_SECRET` 對保護使用者登入狀態至關重要，請務必使用密碼產生器生成一個複雜的隨機字串。
-
-### 3.2 設定前端金鑰
-1.  打開 `index.html` 檔案。
-2.  將 `<div class="cf-turnstile" data-sitekey="YOUR_SITE_KEY"></div>` 中的 `YOUR_SITE_KEY` 替換為您的 Cloudflare Turnstile **Site Key**。
-
-### 3.3 啟動伺服器
-在專案根目錄的終端機中，執行 `npm start`。如果一切順利，您會看到伺服器已在 `http://localhost` 啟動。
-
-### 3.4 進行第一筆測試
-1.  打開瀏覽器，訪問 `http://localhost`。
-2.  **登入**: 點擊「使用 Google 登入」並完成流程。
-3.  **購買**: 點擊任一商品的「立即購買」按鈕。
-4.  **付款**: 在 Payuni 沙箱頁面使用測試信用卡完成支付。
-5.  **驗證**:
-    - 頁面跳轉回 `result.html` 並顯示成功訊息。
-    - 回到首頁，點擊「我的訂單」應能看到購買紀錄。
-    - 前往您的 Google Sheet，檢查是否已成功寫入一筆新訂單。
-
-**做得好！您的測試環境已順利運作。接下來，讓我們帶您探索如何將它變成您自己的產品。**
+| 層級 | 技術 |
+|------|------|
+| 後端 | Node.js + Express.js (TypeScript) |
+| 認證 | Google OAuth 2.0 + express-session |
+| 金流 | PAYUNi |
+| 資料庫 | Google Sheets API（輕量級方案） |
+| 安全 | Helmet、express-rate-limit、CSRF、Turnstile |
+| 前端 | HTML + CSS + Vanilla JavaScript |
 
 ---
 
-## Part 4: 深入導覽與客製化
+## 專案限制（請務必了解）
 
-這部分將幫助您掌握修改與擴充的能力，這是此實戰包的核心價值。
+### 這是範例程式碼，不是生產系統
 
-- **專案結構深度解析**:
-  想了解每個資料夾與重要檔案的用途嗎？請參閱 `@@docs/01_SYSTEM_ARCHITECTURE.md`。
+| 限制 | 說明 |
+|------|------|
+| **Google Sheets 效能** | 不適合高併發場景（每分鐘 100+ 筆寫入可能會有問題） |
+| **無資料庫交易** | Google Sheets 無 ACID 交易支援，極端情況可能資料不一致 |
+| **無訂閱續期** | 只處理首期扣款，後續週期扣款需自行實作或串接金流定期定額 |
+| **無完整錯誤處理** | 部分錯誤情境未做細緻處理 |
+| **Session 存在記憶體** | 伺服器重啟會清除 Session，生產環境應改用 Redis |
 
-- **如何新增/修改商品?**
-  所有商品資料都存放在 `data/products.js` 中。您可以直接修改此檔案來變更商品內容。
+### 升級到生產環境建議
 
-- **安全性設計**:
-  我們已為您內建了 CSRF 保護、Helmet 安全標頭等多項機制。想深入了解它們如何保護您的網站？請閱讀 `@@docs/02_SECURITY_DEEP_DIVE.md`。
+如果你要把這套程式碼用於真實產品，建議：
 
-- **客製化你的網站**:
-  需要更詳細的指南來調整前端樣式或串接其他服務嗎？`@@docs/03_CUSTOMIZATION_GUIDE.md` 為您準備了詳細步驟。
-
----
-
-## Part 5: 從測試到正式上線
-
-恭喜您準備好邁向下一步！在將您的服務部署到真實世界前，請務必完成以下檢查。
-
-### 5.1 上線檢查清單 (Checklist)
-- [ ] 將 Payuni 金鑰從 **測試** 環境切換為 **正式** 環境。
-- [ ] 在 `.env` 中，將 `DOMAIN`、`PAYUNI_RETURN_URL` 等網址從 `http://localhost` 更新為您的 **正式網域** (必須是 `https://`)。
-- [ ] 在 Google Cloud Console 中，將您的正式網域加入到 OAuth 的「已授權...」清單中。
-- [ ] 確保 `.env` 中的 `NOTIFY_URL` 是一個真實、可公開存取的網址。
-- [ ] 產生一個全新的、超級複雜的 `SESSION_SECRET`。
-- [ ] 將 `.env` 中的 `NODE_ENV` 改為 `production`。
-
-### 5.2 部署建議
-您可以將此專案部署到任何支援 Node.js 的平台。想查看在 Render.com 上的部署範例嗎？請參閱 `@@docs/04_DEPLOYMENT.md`。
+1. **換掉 Google Sheets** → 改用 PostgreSQL / MySQL / MongoDB
+2. **Session 改用 Redis** → 避免重啟後 Session 遺失
+3. **加入訂閱排程** → 使用 cron job 或金流商的定期定額功能
+4. **完善錯誤處理** → 加入 Sentry 等錯誤監控
+5. **補單機制** → 實作 Webhook 失敗時的補償腳本
 
 ---
 
-## 附錄：常見問題與支援
+## 快速開始
 
-- **Q: `npm install` 失敗怎麼辦?**
-  A: 請嘗試刪除 `node_modules` 資料夾與 `package-lock.json` 檔案，然後重新執行 `npm install`。若問題持續，請檢查您的 Node.js 版本是否符合要求。
+### 前置需求
 
-- **Q: Payuni 回傳錯誤怎麼辦?**
-  A: 請登入 Payuni 後台，查詢交易失敗的原因。常見問題包含 IP 白名單未設定、Hash 值計算錯誤等。
+- Node.js 18+
+- npm 或 yarn
+- Google Cloud 專案（OAuth + Sheets API）
+- PAYUNi 商家帳號（沙箱環境即可測試）
 
-- **Q: 需要進一步的支援嗎?**
-  A: [請在此處填寫您的支援管道，例如 Email 或學員社群連結]
+### 步驟 1：環境設定
+
+```bash
+# 複製範本
+cp .env.example .env
+
+# 編輯 .env，填入你的金鑰
+```
+
+必填環境變數：
+
+```bash
+# Google OAuth
+GOOGLE_CLIENT_ID=你的_Client_ID
+GOOGLE_CLIENT_SECRET=你的_Client_Secret
+GOOGLE_REDIRECT_URI=https://你的網域/auth/google/callback
+
+# PAYUNi 金流
+PAYUNI_MERCHANT_ID=商家ID
+PAYUNI_HASH_KEY=32字元金鑰
+PAYUNI_HASH_IV=16字元IV
+PAYUNI_API_URL=https://sandbox-api.payuni.com.tw/api/trade
+
+# 其他
+DOMAIN=https://你的網域
+SESSION_SECRET=隨機長字串至少32字元
+```
+
+### 步驟 2：安裝與啟動
+
+```bash
+# 安裝依賴
+npm install
+
+# 開發模式（自動重載）
+npm run dev
+
+# 或正式啟動
+npm start
+```
+
+### 步驟 3：測試支付
+
+1. 開啟 http://localhost（或你的網域）
+2. 使用 Google 帳號登入
+3. 選擇商品並前往付款
+4. 使用 PAYUNi 沙箱測試卡號：
+   - 卡號：`4111111111111111`
+   - 有效期：`12/25`
+   - CVV：`123`
+
+---
+
+## 資料夾結構
+
+```
+金流串接/
+├── index.ts                    # 應用進入點
+├── src/
+│   ├── config/                 # 設定檔
+│   ├── data/products.ts        # 商品資料
+│   ├── middleware/             # 中間件（安全、錯誤處理）
+│   ├── routes/                 # API 路由
+│   │   ├── auth.ts             # Google OAuth
+│   │   ├── payment.ts          # 支付與 Webhook
+│   │   ├── orders.ts           # 訂單查詢
+│   │   └── subscriptions.ts    # 訂閱管理
+│   ├── services/
+│   │   ├── database/           # Google Sheets 操作
+│   │   └── payment/            # PAYUNi SDK
+│   └── utils/                  # 工具函數
+├── _frontend/
+│   ├── index.html              # 首頁（登入 + 選擇商品）
+│   ├── result.html             # 支付結果頁
+│   ├── orders.html             # 訂單查詢頁
+│   ├── subscriptions.html      # 訂閱管理頁
+│   └── public/                 # CSS、JS、圖片
+└── .env.example                # 環境變數範本
+```
+
+---
+
+## API 概覽
+
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/auth/google` | GET | 發起 Google OAuth 登入 |
+| `/api/me` | GET | 取得目前登入的使用者資訊 |
+| `/create-payment` | POST | 建立一次性支付訂單 |
+| `/create-subscription` | POST | 建立訂閱訂單 |
+| `/payuni-webhook` | POST | 接收 PAYUNi Webhook 回調 |
+| `/api/orders` | GET | 查詢使用者訂單 |
+| `/api/subscriptions` | GET | 查詢使用者訂閱 |
+| `/api/order-result/:token` | GET | 取得支付結果詳情 |
+
+詳細 API 文檔請參考 `webhookDoc.md`。
+
+---
+
+## 常見問題
+
+### Q：為什麼用 Google Sheets 不用資料庫？
+
+這是**教學用範例**。Google Sheets 的優點：
+- 無需安裝資料庫軟體
+- 可以直接在試算表看到資料變化
+- 適合快速原型驗證
+
+但生產環境請務必換成正規資料庫。
+
+### Q：Webhook 沒有收到怎麼辦？
+
+1. 確認 PAYUNi 後台的 Notify URL 設定正確
+2. 確認你的伺服器可以被外網訪問（本機測試可用 ngrok）
+3. 檢查伺服器日誌看有沒有收到請求
+
+### Q：如何切換到正式環境？
+
+1. 將 `PAYUNI_API_URL` 改為 `https://api.payuni.com.tw/api/trade`
+2. 更換為正式的商家金鑰
+3. 將 `NODE_ENV` 設為 `production`
+
+---
+
+## 課程配套說明
+
+本程式碼為課程「PAYUNi 金流串接實戰」的範例程式碼，課程內容涵蓋：
+
+1. **流程講解**：完整說明金流串接的運作原理
+2. **逐步實作**：從零開始建立這套系統
+3. **部署教學**：如何將程式碼部署到雲端平台
+
+學員可以直接部署此程式碼，或參考程式碼結構自行實作。
+
+---
+
+## 授權與支援
+
+**維護者**：課程團隊
+**授權**：僅供課程學員使用
+**問題回報**：請透過課程討論區或 Email 聯繫
+
+---
+
+## 更新紀錄
+
+| 日期 | 版本 | 變更 |
+|------|------|------|
+| 2025-12-10 | v1.0 | 初始版本發布 |
